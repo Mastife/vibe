@@ -1,4 +1,5 @@
 import {
+  Analytics01Icon,
   DashboardSpeed02Icon,
   Folder01Icon,
   Invoice01Icon,
@@ -30,6 +31,7 @@ import { useAuth } from '@/lib/use-auth'
 
 const navItems = [
   { to: '/', label: 'Обзор', icon: DashboardSpeed02Icon, exact: true },
+  { to: '/analytics', label: 'Аналитика', icon: Analytics01Icon, exact: false },
   { to: '/projects', label: 'Проекты', icon: Folder01Icon, exact: false },
   { to: '/servers', label: 'Серверы', icon: ServerStack01Icon, exact: false },
   { to: '/clients', label: 'Клиенты', icon: UserGroupIcon, exact: false },

@@ -1,5 +1,6 @@
 import { AuthService } from './auth/service'
 import { ClientsService } from './clients/service'
+import { AnalyticsService } from './dashboard/analytics'
 import { DashboardService } from './dashboard/service'
 import type { DbClient } from './db'
 import type { AppEnv } from './env'
@@ -21,6 +22,7 @@ export type Services = {
   invoicesService: InvoicesService
   healthService: HealthService
   dashboardService: DashboardService
+  analyticsService: AnalyticsService
   notifier: Notifier | null
 }
 
@@ -42,6 +44,7 @@ export function createServices({ env, prisma }: { env: AppEnv; prisma: DbClient 
   const invoicesService = new InvoicesService(prisma)
   const healthService = new HealthService(prisma, env, notifier, options.check ?? checkUrl)
   const dashboardService = new DashboardService(prisma, projectsService, serversService, invoicesService)
+  const analyticsService = new AnalyticsService(prisma, projectsService, serversService, invoicesService)
 
   return {
     authService,
@@ -52,6 +55,7 @@ export function createServices({ env, prisma }: { env: AppEnv; prisma: DbClient 
     invoicesService,
     healthService,
     dashboardService,
+    analyticsService,
     notifier,
   }
 }

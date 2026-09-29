@@ -4,6 +4,7 @@ import {
   authStatusResponseSchema,
   clientListResponseSchema,
   clientResponseSchema,
+  analyticsResponseSchema,
   dashboardResponseSchema,
   healthCheckResponseSchema,
   healthRunAllResponseSchema,
@@ -27,6 +28,7 @@ import {
   type ClientListResponse,
   type ClientResponse,
   type ClientUpdatePayload,
+  type AnalyticsResponse,
   type DashboardResponse,
   type HealthCheckResponse,
   type HealthRunAllResponse,
@@ -155,6 +157,10 @@ export class ApiClient {
 
   getDashboard(): Promise<DashboardResponse> {
     return this.request('/api/dashboard', dashboardResponseSchema, { auth: true })
+  }
+
+  getAnalytics(): Promise<AnalyticsResponse> {
+    return this.request('/api/dashboard/analytics', analyticsResponseSchema, { auth: true })
   }
 
   runHealthChecks(): Promise<HealthRunAllResponse> {

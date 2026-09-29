@@ -257,6 +257,14 @@ maybeDescribe('projects hq API integration', () => {
       paidLast30Days: [{ currency: 'KZT', amount: 4500 }],
     })
 
+    const analytics = await api('GET', '/api/dashboard/analytics', undefined, token)
+    expect(analytics.status).toBe(200)
+    expect(analytics.body.currency).toBe('KZT')
+    expect(analytics.body.health.days).toHaveLength(14)
+    expect(analytics.body.health.projects.map((entry: { id: string }) => entry.id)).toEqual([projectId])
+    expect(analytics.body.finance.months.at(-1)).toMatchObject({ month: toDateOnly(today).slice(0, 7), income: 4500 })
+    expect(analytics.body.finance.clientDebts).toEqual([])
+
     const blockedDelete = await api('DELETE', `/api/clients/${clientId}`, undefined, token)
     expect(blockedDelete.status).toBe(409)
 
@@ -311,5 +319,12 @@ maybeDescribe('projects hq API integration', () => {
     const detail = await api('GET', `/api/projects/${projectId}`, undefined, token)
     expect(detail.body.healthRuns).toHaveLength(4)
     expect(detail.body.healthRuns[0].ok).toBe(true)
+
+    const analytics = await api('GET', '/api/dashboard/analytics', undefined, token)
+    expect(analytics.body.health.daily.at(-1)).toMatchObject({ checks: 4, failures: 2, uptime: 50 })
+    expect(analytics.body.health.projects).toHaveLength(1)
+    expect(analytics.body.health.projects[0]).toMatchObject({ id: projectId, status: 'UP', uptime24h: 50 })
+    expect(analytics.body.health.projects[0].daily.at(-1)).toBe(50)
+    expect(analytics.body.health.statusCounts).toEqual({ up: 1, down: 0, unknown: 0 })
   })
 })
