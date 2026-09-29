@@ -16,4 +16,12 @@ export default defineConfig({
     },
     dedupe: ['react', 'react-dom'],
   },
+  server: {
+    // With VITE_API_URL empty the panel calls `/api` on its own origin, so it works through a tunnel
+    // (e.g. `tailscale serve`) from another device; the dev server forwards those calls to the backend.
+    proxy: {
+      '/api': process.env.DEV_API_PROXY_TARGET ?? 'http://localhost:3000',
+    },
+    allowedHosts: ['.ts.net'],
+  },
 })
