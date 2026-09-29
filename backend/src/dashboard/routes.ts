@@ -1,5 +1,5 @@
 import { createRoute, OpenAPIHono } from '@hono/zod-openapi'
-import { dashboardResponseSchema } from '@projects-hq/contracts'
+import { analyticsResponseSchema, dashboardResponseSchema } from '@projects-hq/contracts'
 
 import { requireAuth } from '../auth/guard'
 import type { AppBindings } from '../http/context'
@@ -15,12 +15,25 @@ const dashboardRoute = createRoute({
   },
 })
 
+const analyticsRoute = createRoute({
+  method: 'get',
+  path: '/analytics',
+  responses: {
+    200: jsonResponse(analyticsResponseSchema, 'Health and finance time series for the analytics dashboards'),
+    401: unauthorizedResponse,
+  },
+})
+
 export function createDashboardRoutes() {
   const routes = new OpenAPIHono<AppBindings>({ defaultHook: validationErrorHook })
   routes.use('*', requireAuth)
 
   routes.openapi(dashboardRoute, async (c) => {
     return c.json(await c.get('dashboardService').build(), 200)
+  })
+
+  routes.openapi(analyticsRoute, async (c) => {
+    return c.json(await c.get('analyticsService').build(), 200)
   })
 
   return routes

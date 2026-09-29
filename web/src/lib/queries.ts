@@ -17,6 +17,7 @@ import { useAuth } from './use-auth'
 export const queryKeys = {
   authStatus: ['auth', 'status'] as const,
   dashboard: ['dashboard'] as const,
+  analytics: ['dashboard', 'analytics'] as const,
   projects: ['projects'] as const,
   project: (id: string) => ['projects', id] as const,
   servers: ['servers'] as const,
@@ -41,6 +42,15 @@ export function useDashboard() {
   return useQuery({
     queryKey: queryKeys.dashboard,
     queryFn: () => api.getDashboard(),
+    refetchInterval: 60_000,
+  })
+}
+
+export function useAnalytics() {
+  const { api } = useAuth()
+  return useQuery({
+    queryKey: queryKeys.analytics,
+    queryFn: () => api.getAnalytics(),
     refetchInterval: 60_000,
   })
 }

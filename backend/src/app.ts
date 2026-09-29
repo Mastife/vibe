@@ -50,6 +50,7 @@ export function createApp({ env, prisma, services = createServices({ env, prisma
     c.set('invoicesService', services.invoicesService)
     c.set('healthService', services.healthService)
     c.set('dashboardService', services.dashboardService)
+    c.set('analyticsService', services.analyticsService)
     await next()
   })
 

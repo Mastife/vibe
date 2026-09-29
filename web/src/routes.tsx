@@ -1,6 +1,7 @@
 import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router'
 
 import { RootLayout } from '@/components/root-layout'
+import { AnalyticsPage } from '@/pages/analytics'
 import { ClientsPage } from '@/pages/clients'
 import { DashboardPage } from '@/pages/dashboard'
 import { InvoicesPage } from '@/pages/invoices'
@@ -17,6 +18,12 @@ const dashboardRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
   component: DashboardPage,
+})
+
+const analyticsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/analytics',
+  component: AnalyticsPage,
 })
 
 const projectsRoute = createRoute({
@@ -57,6 +64,7 @@ const invoicesRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   dashboardRoute,
+  analyticsRoute,
   projectsRoute,
   projectDetailRoute,
   serversRoute,
