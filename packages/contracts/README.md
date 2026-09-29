@@ -1,6 +1,6 @@
 # Contracts
 
-The contracts package is the shared source of truth for API payloads, DTOs, and error shapes. Backend, web, and mobile import these schemas instead of redefining request or response shapes locally.
+The contracts package is the shared source of truth for API payloads, DTOs, and error shapes: auth, projects (with health), servers (with payment state), clients, invoices, and the dashboard. Backend and web import these schemas instead of redefining request or response shapes locally.
 
 ## Stack
 
@@ -30,8 +30,9 @@ When a schema changes, validate both sides in the same pass:
 
 - backend route/service validation and serialization;
 - web API client, form parsing, and UI state;
-- mobile API client, form parsing, and UI state;
 - relevant unit/integration/E2E tests from [../../docs/TESTING.md](../../docs/TESTING.md).
+
+Create schemas carry defaults; update schemas derive from a default-free base with `.partial()` so PATCH never resets fields. Validation messages are Russian via `z.config(z.locales.ru())` in `src/index.ts`.
 
 Do not add runtime-only business logic here. Contracts should stay focused on data validation, normalization, and shared TypeScript types.
 

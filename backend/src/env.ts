@@ -53,10 +53,31 @@ const envSchema = z.object({
   SPACES_UPLOAD_URL_TTL_SECONDS: z.coerce.number().int().positive().max(7 * 24 * 60 * 60).default(15 * 60),
   SPACES_DOWNLOAD_URL_TTL_SECONDS: z.coerce.number().int().positive().max(7 * 24 * 60 * 60).default(5 * 60),
   SPACES_PUBLIC_CACHE_CONTROL: stringWithDefault('public, max-age=31536000, immutable'),
+  // Extra admin accounts allowed to register after the first one; the first registration is always open.
+  ADMIN_EMAILS: z
+    .string()
+    .default('')
+    .transform((value) =>
+      value
+        .split(',')
+        .map((email) => email.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  // Public URL of the web panel, used for links inside notifications.
+  APP_URL: optionalUrlSchema,
+  HEALTH_CHECK_INTERVAL_SECONDS: z.coerce.number().int().min(30).default(300),
+  HEALTH_CHECK_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60_000).default(10_000),
+  HEALTH_HISTORY_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(30),
+  GITHUB_TOKEN: optionalStringSchema,
+  GITHUB_SYNC_INTERVAL_SECONDS: z.coerce.number().int().min(300).default(3600),
+  TELEGRAM_BOT_TOKEN: optionalStringSchema,
+  TELEGRAM_CHAT_ID: optionalStringSchema,
+  DAILY_DIGEST_HOUR_UTC: z.coerce.number().int().min(0).max(23).default(6),
 }).superRefine((env, ctx) => {
   validateJwtSecret(env, ctx)
   validateCorsOrigins(env, ctx)
   validateStorageEnv(env, ctx)
+  validateTelegramEnv(env, ctx)
 })
 
 export type AppEnv = z.infer<typeof envSchema>
@@ -167,6 +188,21 @@ function validateStorageEnv(env: z.infer<typeof envSchema>, ctx: z.RefinementCtx
         code: 'custom',
         path: [key],
         message: `${key} is required when DigitalOcean Spaces storage is configured`,
+      })
+    }
+  }
+}
+
+function validateTelegramEnv(env: z.infer<typeof envSchema>, ctx: z.RefinementCtx) {
+  const configured = env.TELEGRAM_BOT_TOKEN !== undefined || env.TELEGRAM_CHAT_ID !== undefined
+  if (!configured) return
+
+  for (const key of ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID'] as const) {
+    if (env[key] === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [key],
+        message: `${key} is required when Telegram notifications are configured`,
       })
     }
   }

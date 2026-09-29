@@ -363,7 +363,10 @@ function optionalBackendWorkersBlock() {
   }
 
   const workerName = doName(process.env.DO_BACKEND_WORKER_NAME ?? 'worker', 32)
-  const runCommand = requiredWorkerRunCommand('DO_BACKEND_WORKER_RUN_COMMAND')
+  // The monitoring scheduler lives in `bun run start:worker`; allow overriding for custom entrypoints.
+  const runCommand = process.env.DO_BACKEND_WORKER_RUN_COMMAND?.trim()
+    ? requiredWorkerRunCommand('DO_BACKEND_WORKER_RUN_COMMAND')
+    : 'bun run start:worker'
   const instanceSizeSlug = optionalAppPlatformInstanceSizeSlugEnv(
     'DO_BACKEND_WORKER_INSTANCE_SIZE_SLUG',
     defaultBackendWorkerInstanceSizeSlug,
@@ -399,13 +402,6 @@ workers:
 function requiredWorkerRunCommand(name) {
   const value = requiredEnv(name)
   assertSafeYamlString(name, value)
-
-  if (value === 'bun run start:worker') {
-    throw new Error(
-      `${name} must point at a real long-running worker command. The template placeholder 'bun run start:worker' exits immediately and must not be deployed as an App Platform worker.`,
-    )
-  }
-
   return value
 }
 

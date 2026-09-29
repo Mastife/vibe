@@ -1,0 +1,18 @@
+# Single-origin layout: the SPA and the API share one domain, so cookies and CORS stay simple.
+{$HQ_DOMAIN} {
+	encode gzip
+
+	handle /api/* {
+		reverse_proxy api:8080
+	}
+
+	handle /openapi.json {
+		reverse_proxy api:8080
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

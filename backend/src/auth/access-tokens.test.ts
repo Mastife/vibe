@@ -1,21 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 
-import type { AppEnv } from '../env'
+import { testEnv } from '../test-support/env'
 import { signAccessToken, verifyAccessToken } from './access-tokens'
 
-const env: AppEnv = {
-  PORT: 3000,
-  DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/projects_hq',
-  JWT_SECRET: '12345678901234567890123456789012',
-  CORS_ORIGINS: ['http://localhost:5173'],
-  ACCESS_TOKEN_TTL_SECONDS: 60,
-  REFRESH_TOKEN_TTL_DAYS: 30,
-  COOKIE_SECURE: false,
-  SPACES_UPLOAD_MAX_BYTES: 10 * 1024 * 1024,
-  SPACES_UPLOAD_URL_TTL_SECONDS: 900,
-  SPACES_DOWNLOAD_URL_TTL_SECONDS: 300,
-  SPACES_PUBLIC_CACHE_CONTROL: 'public, max-age=31536000, immutable',
-}
+const env = testEnv({ JWT_SECRET: '12345678901234567890123456789012' })
 
 describe('access tokens', () => {
   test('signs and verifies session-scoped JWT payloads', async () => {

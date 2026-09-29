@@ -11,3 +11,4 @@ coverage
 !.env.example
 web/e2e/.artifacts
 *.log
+deploy/.env.production

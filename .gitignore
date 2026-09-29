@@ -33,3 +33,6 @@ backend/.prisma-generate.lock
 .vscode/
 *.swp
 *.swo
+
+# Production env for the VPS compose stack
+deploy/.env.production

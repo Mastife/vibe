@@ -2,26 +2,19 @@ import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
 
 import { createApp } from '../app'
 import { createPrisma } from '../db'
-import type { AppEnv } from '../env'
+import { testEnv } from '../test-support/env'
 
 const databaseUrl = process.env.TEST_DATABASE_URL
 
 const maybeDescribe = databaseUrl ? describe : describe.skip
 
 maybeDescribe('auth API integration', () => {
-  const env: AppEnv = {
-    PORT: 3000,
+  // Registration closes after the first admin; allowlist the emails these scenarios register twice.
+  const env = testEnv({
     DATABASE_URL: databaseUrl!,
     JWT_SECRET: '12345678901234567890123456789012',
-    CORS_ORIGINS: ['http://localhost:5173'],
-    ACCESS_TOKEN_TTL_SECONDS: 60,
-    REFRESH_TOKEN_TTL_DAYS: 30,
-    COOKIE_SECURE: false,
-    SPACES_UPLOAD_MAX_BYTES: 10 * 1024 * 1024,
-    SPACES_UPLOAD_URL_TTL_SECONDS: 900,
-    SPACES_DOWNLOAD_URL_TTL_SECONDS: 300,
-    SPACES_PUBLIC_CACHE_CONTROL: 'public, max-age=31536000, immutable',
-  }
+    ADMIN_EMAILS: 'dupe@example.com,register-race@example.com',
+  })
   const prisma = createPrisma(databaseUrl!)
   const app = createApp({ env, prisma })
 

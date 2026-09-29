@@ -2,29 +2,26 @@ import { OpenAPIHono } from '@hono/zod-openapi'
 import { cors } from 'hono/cors'
 import { secureHeaders } from 'hono/secure-headers'
 
+import { createAuthRoutes } from './auth/routes'
+import { createClientRoutes } from './clients/routes'
+import { createDashboardRoutes } from './dashboard/routes'
 import type { DbClient } from './db'
 import type { AppEnv } from './env'
-import { createAuthRoutes } from './auth/routes'
-import { AuthService } from './auth/service'
+import { createHealthRoutes } from './health/routes'
+import type { AppBindings } from './http/context'
 import { errorResponse, handleError, validationErrorHook } from './http/errors'
-import { createStorageServiceFromEnv, type StorageService } from './storage/service'
-
-type AppBindings = {
-  Variables: {
-    authService: AuthService
-    env: AppEnv
-    storageService: StorageService | null
-  }
-}
+import { createInvoiceRoutes } from './invoices/routes'
+import { createProjectRoutes } from './projects/routes'
+import { createServerRoutes } from './servers/routes'
+import { createServices, type Services } from './services'
 
 type CreateAppOptions = {
   env: AppEnv
   prisma: DbClient
+  services?: Services
 }
 
-export function createApp({ env, prisma }: CreateAppOptions) {
-  const authService = new AuthService(prisma, env)
-  const storageService = createStorageServiceFromEnv(env)
+export function createApp({ env, prisma, services = createServices({ env, prisma }) }: CreateAppOptions) {
   const app = new OpenAPIHono<AppBindings>({
     defaultHook: validationErrorHook,
   })
@@ -38,21 +35,27 @@ export function createApp({ env, prisma }: CreateAppOptions) {
         return env.CORS_ORIGINS.includes(origin) ? origin : null
       },
       allowHeaders: ['Content-Type', 'Authorization', 'X-Client-Platform'],
-      allowMethods: ['GET', 'POST', 'OPTIONS'],
+      allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
       credentials: true,
       maxAge: 600,
     }),
   )
   app.use('*', async (c, next) => {
-    c.set('authService', authService)
     c.set('env', env)
-    c.set('storageService', storageService)
+    c.set('authService', services.authService)
+    c.set('storageService', services.storageService)
+    c.set('projectsService', services.projectsService)
+    c.set('serversService', services.serversService)
+    c.set('clientsService', services.clientsService)
+    c.set('invoicesService', services.invoicesService)
+    c.set('healthService', services.healthService)
+    c.set('dashboardService', services.dashboardService)
     await next()
   })
 
   app.get('/', (c) => {
     return c.json({
-      name: 'projects_hq backend',
+      name: 'Projects HQ backend',
       status: 'ok',
     })
   })
@@ -64,11 +67,17 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   })
 
   app.route('/api/auth', createAuthRoutes())
+  app.route('/api/projects', createProjectRoutes())
+  app.route('/api/servers', createServerRoutes())
+  app.route('/api/clients', createClientRoutes())
+  app.route('/api/invoices', createInvoiceRoutes())
+  app.route('/api/dashboard', createDashboardRoutes())
+  app.route('/api/health', createHealthRoutes())
 
   app.doc('/openapi.json', {
     openapi: '3.0.0',
     info: {
-      title: 'projects_hq API',
+      title: 'Projects HQ API',
       version: '1.0.0',
     },
   })

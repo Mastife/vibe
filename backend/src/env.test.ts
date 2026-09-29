@@ -19,6 +19,32 @@ describe('loadEnv', () => {
     expect(env.SPACES_UPLOAD_URL_TTL_SECONDS).toBe(900)
     expect(env.SPACES_DOWNLOAD_URL_TTL_SECONDS).toBe(300)
     expect(env.SPACES_PUBLIC_CACHE_CONTROL).toBe('public, max-age=31536000, immutable')
+    expect(env.ADMIN_EMAILS).toEqual([])
+    expect(env.HEALTH_CHECK_INTERVAL_SECONDS).toBe(300)
+    expect(env.HEALTH_CHECK_TIMEOUT_MS).toBe(10_000)
+    expect(env.DAILY_DIGEST_HOUR_UTC).toBe(6)
+    expect(env.TELEGRAM_BOT_TOKEN).toBeUndefined()
+  })
+
+  test('normalizes admin allowlists and requires a complete Telegram configuration', () => {
+    const env = loadEnv({
+      DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/projects_hq',
+      JWT_SECRET: '12345678901234567890123456789012',
+      ADMIN_EMAILS: ' Owner@Example.com, second@example.com ,',
+      TELEGRAM_BOT_TOKEN: '123:abc',
+      TELEGRAM_CHAT_ID: '-100',
+    })
+
+    expect(env.ADMIN_EMAILS).toEqual(['owner@example.com', 'second@example.com'])
+    expect(env.TELEGRAM_CHAT_ID).toBe('-100')
+
+    expect(() =>
+      loadEnv({
+        DATABASE_URL: 'postgresql://superuser:superpassword@localhost:54329/projects_hq',
+        JWT_SECRET: '12345678901234567890123456789012',
+        TELEGRAM_BOT_TOKEN: '123:abc',
+      }),
+    ).toThrow('TELEGRAM_CHAT_ID')
   })
 
   test('requires complete DigitalOcean Spaces configuration when storage is enabled', () => {
