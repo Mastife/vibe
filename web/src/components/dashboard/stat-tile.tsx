@@ -17,9 +17,9 @@ export function StatTile({ label, value, hint, tone = 'default' }: StatTileProps
         <Typography variant="caption" tone="muted">
           {label}
         </Typography>
-        <div className="flex items-center gap-2">
-          {tone !== 'default' && <StatusDot tone={tone} />}
-          <Typography variant="h4" truncate>
+        <div className="flex items-start gap-2">
+          {tone !== 'default' && <StatusDot tone={tone} className="mt-2.5" />}
+          <Typography variant="h4" balance>
             {value}
           </Typography>
         </div>
