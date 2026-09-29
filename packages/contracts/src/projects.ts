@@ -34,6 +34,8 @@ export const projectPilotSchema = z.object({
   outcome: pilotOutcomeSchema.nullable(),
   state: pilotStateSchema,
   daysLeft: z.number().int().nullable(),
+  /** Auto-invoicing waits while the pilot runs and until the client decides to continue. */
+  blocksInvoicing: z.boolean(),
 })
 
 export const projectSlugSchema = z

@@ -330,6 +330,42 @@ maybeDescribe('projects hq API integration', () => {
     expect(analytics.body.health.statusCounts).toEqual({ up: 1, down: 0, unknown: 0 })
   })
 
+  test('holds auto-invoicing during a pilot and resumes only after a decision to continue', async () => {
+    const token = await registerAdmin()
+    const today = todayUtc()
+    const client = await api('POST', '/api/clients', { name: 'G-service' }, token)
+    const created = await api(
+      'POST',
+      '/api/projects',
+      {
+        name: 'Moika',
+        clientId: client.body.client.id,
+        monthlyFee: 25000,
+        autoInvoice: true,
+        billingDay: Math.min(today.getUTCDate(), 28),
+        pilotStartsAt: toDateOnly(addDays(today, -10)),
+        pilotEndsAt: toDateOnly(today),
+      },
+      token,
+    )
+    expect(created.status).toBe(201)
+    expect(created.body.project.pilot).toMatchObject({ blocksInvoicing: true })
+    const projectId = created.body.project.id as string
+
+    // Last pilot day, even with the decision already made: still free.
+    await api('PATCH', `/api/projects/${projectId}`, { pilotOutcome: 'CONTINUE' }, token)
+    expect(await services.billingService.issueDue()).toEqual({ issued: 0 })
+
+    // Pilot over but declined: no invoice.
+    const ended = toDateOnly(addDays(today, -1))
+    await api('PATCH', `/api/projects/${projectId}`, { pilotEndsAt: ended, pilotOutcome: 'DECLINE' }, token)
+    expect(await services.billingService.issueDue()).toEqual({ issued: 0 })
+
+    const resumed = await api('PATCH', `/api/projects/${projectId}`, { pilotOutcome: 'CONTINUE' }, token)
+    expect(resumed.body.project.pilot).toMatchObject({ state: 'DECIDED', blocksInvoicing: false })
+    expect(await services.billingService.issueDue()).toEqual({ issued: 1 })
+  })
+
   test('auto-invoices a subscription once per month and requires a client and a fee', async () => {
     const token = await registerAdmin()
     const today = todayUtc()

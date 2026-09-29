@@ -198,6 +198,13 @@ export function ProjectDetailPage() {
             <Fact label="Плата клиента">
               {project.monthlyFee === null ? '—' : `${formatMoney(project.monthlyFee, project.currency)} / мес`}
             </Fact>
+            <Fact label="Автосчёт">
+              {!project.autoInvoice
+                ? 'выключен'
+                : project.pilot.blocksInvoicing
+                  ? `на паузе до конца пилота и решения «продолжаем» (затем ${project.billingDay} числа)`
+                  : `каждый месяц ${project.billingDay} числа`}
+            </Fact>
             <Fact label="Пилот">
               {project.pilot.endsAt
                 ? `${project.pilot.startsAt ? `${formatDate(project.pilot.startsAt)} – ` : 'до '}${formatDate(project.pilot.endsAt)}${project.pilot.outcome ? ` · ${pilotOutcomeLabels[project.pilot.outcome].toLowerCase()}` : ''}`
