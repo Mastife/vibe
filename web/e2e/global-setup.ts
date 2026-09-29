@@ -66,4 +66,6 @@ export default async function globalSetup() {
   }
 
   run('bun', ['run', '--cwd', 'backend', 'prisma:deploy'], env)
+  // The journey starts from an empty panel (first-run registration), so application tables are emptied every run.
+  run('bun', ['run', '--cwd', 'backend', 'db:reset:test'], env)
 }
