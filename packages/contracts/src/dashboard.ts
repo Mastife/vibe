@@ -16,6 +16,8 @@ export const alertKindSchema = z.enum([
   'INVOICE_DUE',
   'DOMAIN_EXPIRED',
   'DOMAIN_EXPIRING',
+  'PILOT_ENDING',
+  'PILOT_DECISION_OVERDUE',
   'PROJECTS_UNMONITORED',
 ])
 

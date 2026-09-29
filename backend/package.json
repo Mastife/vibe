@@ -13,7 +13,7 @@
     "build": "bun run prisma:generate && tsc --noEmit",
     "typecheck": "bun run prisma:generate && tsc --noEmit",
     "test": "bun run test:unit && bun run test:integration",
-    "test:unit": "bun test src/env.test.ts src/db.test.ts src/contracts.test.ts src/cron.test.ts src/worker.test.ts src/lib src/auth/access-tokens.test.ts src/auth/passwords.test.ts src/auth/refresh-tokens.test.ts src/auth/routes.test.ts src/storage/service.test.ts src/health/checker.test.ts src/notifications src/github src/dashboard/alerts.test.ts src/dashboard/analytics.test.ts src/invoices/billing.test.ts src/domains/service.test.ts",
+    "test:unit": "bun test src/env.test.ts src/db.test.ts src/contracts.test.ts src/cron.test.ts src/worker.test.ts src/lib src/auth/access-tokens.test.ts src/auth/passwords.test.ts src/auth/refresh-tokens.test.ts src/auth/routes.test.ts src/storage/service.test.ts src/health/checker.test.ts src/notifications src/github src/dashboard/alerts.test.ts src/dashboard/analytics.test.ts src/projects/pilot.test.ts src/invoices/billing.test.ts src/domains/service.test.ts",
     "test:integration": "bun scripts/test-integration.mjs",
     "smoke:docker": "bun scripts/docker-smoke.mjs",
     "prisma": "prisma",

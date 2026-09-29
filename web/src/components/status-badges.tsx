@@ -3,12 +3,14 @@ import type {
   HealthStatus,
   InvoiceDto,
   PaymentState,
+  PilotState,
+  ProjectPilot,
   ProjectStatus,
   ServerStatus,
 } from '@projects-hq/contracts'
 
 import { Badge } from '@/components/ui/badge'
-import { invoiceStatusLabels, paymentStateLabel, projectStatusLabels, serverStatusLabels } from '@/lib/labels'
+import { invoiceStatusLabels, paymentStateLabel, pilotLabel, projectStatusLabels, serverStatusLabels } from '@/lib/labels'
 import { cn } from '@/lib/utils'
 
 type StatusTone = 'good' | 'warning' | 'serious' | 'critical' | 'neutral'
@@ -29,6 +31,27 @@ export function StatusDot({ tone, className }: { tone: StatusTone; className?: s
 export function ProjectStatusBadge({ status }: { status: ProjectStatus }) {
   const variant = status === 'ACTIVE' ? 'default' : status === 'ARCHIVED' ? 'ghost' : 'secondary'
   return <Badge variant={variant}>{projectStatusLabels[status]}</Badge>
+}
+
+const pilotTone: Record<PilotState, StatusTone> = {
+  NONE: 'neutral',
+  ACTIVE: 'neutral',
+  ENDING: 'warning',
+  AWAITING_DECISION: 'critical',
+  DECIDED: 'good',
+}
+
+/** Pilot status chip; renders nothing for projects without a pilot. */
+export function PilotBadge({ pilot }: { pilot: ProjectPilot }) {
+  const label = pilotLabel(pilot)
+  if (!label) return null
+  const tone = pilot.state === 'DECIDED' && pilot.outcome === 'DECLINE' ? 'neutral' : pilotTone[pilot.state]
+  return (
+    <Badge variant="outline">
+      <StatusDot tone={tone} />
+      {label}
+    </Badge>
+  )
 }
 
 const healthMeta: Record<HealthStatus, { label: string; tone: StatusTone }> = {

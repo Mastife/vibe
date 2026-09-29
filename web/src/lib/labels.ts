@@ -3,6 +3,8 @@ import type {
   BillingPeriod,
   InvoiceStatus,
   PaymentState,
+  PilotOutcome,
+  ProjectPilot,
   ProjectStatus,
   ServerStatus,
 } from '@projects-hq/contracts'
@@ -57,5 +59,26 @@ export function paymentStateLabel(state: PaymentState, daysLeft: number | null, 
       return `Оплачен до ${formatDate(paidUntil)}`
     default:
       return 'Срок оплаты не задан'
+  }
+}
+
+export const pilotOutcomeLabels: Record<PilotOutcome, string> = {
+  CONTINUE: 'Продолжаем работу',
+  DECLINE: 'Клиент отказался',
+}
+
+/** One-line pilot status for badges; null when the project has no pilot. */
+export function pilotLabel(pilot: ProjectPilot): string | null {
+  switch (pilot.state) {
+    case 'ACTIVE':
+      return `Пилот до ${formatDate(pilot.endsAt)}`
+    case 'ENDING':
+      return pilot.daysLeft === 0 ? 'Пилот: последний день' : `Пилот: осталось ${formatDays(pilot.daysLeft ?? 0)}`
+    case 'AWAITING_DECISION':
+      return 'Пилот окончен — нужно решение'
+    case 'DECIDED':
+      return pilot.outcome === 'CONTINUE' ? 'Пилот: продолжаем' : 'Пилот: отказ'
+    default:
+      return null
   }
 }

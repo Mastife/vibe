@@ -31,3 +31,21 @@ describe('project auto-invoicing contracts', () => {
     expect(projectUpdateSchema.safeParse({ billingDay: 29 }).success).toBe(false)
   })
 })
+
+describe('project pilot contracts', () => {
+  test('accepts an open pilot and clears fields from blank form input', () => {
+    expect(projectCreateSchema.parse({ name: 'Moika', pilotStartsAt: '2026-09-19', pilotEndsAt: '2026-10-19' })).toMatchObject({
+      pilotStartsAt: '2026-09-19',
+      pilotEndsAt: '2026-10-19',
+    })
+    expect(projectUpdateSchema.parse({ pilotEndsAt: '', pilotOutcome: '' })).toEqual({ pilotEndsAt: null, pilotOutcome: null })
+    expect(projectUpdateSchema.parse({ pilotOutcome: 'CONTINUE' }).pilotOutcome).toBe('CONTINUE')
+  })
+
+  test('rejects a pilot that ends before it starts and unknown outcomes', () => {
+    const backwards = projectUpdateSchema.safeParse({ pilotStartsAt: '2026-10-19', pilotEndsAt: '2026-09-19' })
+    expect(backwards.success).toBe(false)
+    expect(backwards.error?.issues[0]?.path).toEqual(['pilotEndsAt'])
+    expect(projectUpdateSchema.safeParse({ pilotOutcome: 'MAYBE' }).success).toBe(false)
+  })
+})

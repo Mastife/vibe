@@ -4,7 +4,9 @@ import {
   blankToNull,
   currencySchema,
   idSchema,
+  isoDateSchema,
   isoDateTimeSchema,
+  optionalDate,
   optionalId,
   optionalMoneySchema,
   optionalText,
@@ -16,6 +18,23 @@ import { invoiceSchema } from './invoices'
 
 export const projectStatusSchema = z.enum(['DEVELOPMENT', 'ACTIVE', 'PAUSED', 'ARCHIVED'])
 export const healthStatusSchema = z.enum(['UP', 'DOWN', 'UNKNOWN'])
+
+/** Client decision after the pilot; null while still open. */
+export const pilotOutcomeSchema = z.enum(['CONTINUE', 'DECLINE'])
+
+/**
+ * NONE: no pilot. ACTIVE: running. ENDING: ends within a week, decision pending.
+ * AWAITING_DECISION: ended without a decision. DECIDED: outcome recorded.
+ */
+export const pilotStateSchema = z.enum(['NONE', 'ACTIVE', 'ENDING', 'AWAITING_DECISION', 'DECIDED'])
+
+export const projectPilotSchema = z.object({
+  startsAt: isoDateSchema.nullable(),
+  endsAt: isoDateSchema.nullable(),
+  outcome: pilotOutcomeSchema.nullable(),
+  state: pilotStateSchema,
+  daysLeft: z.number().int().nullable(),
+})
 
 export const projectSlugSchema = z
   .string()
@@ -70,6 +89,7 @@ export const projectSchema = z.object({
   currency: z.string(),
   autoInvoice: z.boolean(),
   billingDay: z.number().int(),
+  pilot: projectPilotSchema,
   tags: z.array(z.string()),
   notes: z.string().nullable(),
   health: projectHealthSchema,
@@ -84,6 +104,12 @@ export const billingDaySchema = z.coerce
   .int()
   .min(1, 'День от 1 до 28')
   .max(28, 'День от 1 до 28')
+
+function pilotDatesInOrder(value: { pilotStartsAt?: string | null; pilotEndsAt?: string | null }) {
+  return !value.pilotStartsAt || !value.pilotEndsAt || value.pilotStartsAt <= value.pilotEndsAt
+}
+
+const pilotDatesIssue = { message: 'Пилот не может закончиться раньше, чем начался', path: ['pilotEndsAt'] }
 
 const projectFieldsSchema = z.object({
   name: requiredText(120),
@@ -100,6 +126,9 @@ const projectFieldsSchema = z.object({
   /** Monthly subscription invoice to the client, issued on `billingDay`; needs a client and a monthly fee. */
   autoInvoice: z.boolean(),
   billingDay: billingDaySchema,
+  pilotStartsAt: optionalDate(),
+  pilotEndsAt: optionalDate(),
+  pilotOutcome: z.preprocess(blankToNull, pilotOutcomeSchema.nullable().optional()),
   tags: tagsSchema,
   notes: optionalText(5000),
 })
@@ -110,10 +139,10 @@ export const projectCreateSchema = projectFieldsSchema.extend({
   autoInvoice: z.boolean().default(false),
   billingDay: billingDaySchema.default(1),
   tags: tagsSchema.default([]),
-})
+}).refine(pilotDatesInOrder, pilotDatesIssue)
 
 // Defaults would silently reset fields on PATCH, so updates derive from the default-free base.
-export const projectUpdateSchema = projectFieldsSchema.partial()
+export const projectUpdateSchema = projectFieldsSchema.partial().refine(pilotDatesInOrder, pilotDatesIssue)
 
 export const healthCheckRunSchema = z.object({
   id: idSchema,
@@ -154,6 +183,9 @@ export type ProjectStatus = z.infer<typeof projectStatusSchema>
 export type HealthStatus = z.infer<typeof healthStatusSchema>
 export type ProjectHealth = z.infer<typeof projectHealthSchema>
 export type ProjectDto = z.infer<typeof projectSchema>
+export type PilotOutcome = z.infer<typeof pilotOutcomeSchema>
+export type PilotState = z.infer<typeof pilotStateSchema>
+export type ProjectPilot = z.infer<typeof projectPilotSchema>
 export type ProjectRef = z.infer<typeof projectRefSchema>
 export type ProjectCreateInput = z.input<typeof projectCreateSchema>
 export type ProjectCreatePayload = z.output<typeof projectCreateSchema>

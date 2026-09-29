@@ -19,9 +19,10 @@ import { Input } from '@/components/ui/input'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { Typography } from '@/components/ui/typography'
 import { ApiRequestError } from '@/lib/api'
 import { fieldNameGuard, parseTags, toFieldErrors, type FieldErrorMap } from '@/lib/form'
-import { projectStatusLabels } from '@/lib/labels'
+import { pilotOutcomeLabels, projectStatusLabels } from '@/lib/labels'
 import { useCreateProject, useUpdateProject } from '@/lib/queries'
 
 type ProjectDraft = {
@@ -37,6 +38,9 @@ type ProjectDraft = {
   currency: string
   autoInvoice: boolean
   billingDay: string
+  pilotStartsAt: string
+  pilotEndsAt: string
+  pilotOutcome: string
   tags: string
   description: string
   notes: string
@@ -57,6 +61,9 @@ const fieldNames = [
   'currency',
   'autoInvoice',
   'billingDay',
+  'pilotStartsAt',
+  'pilotEndsAt',
+  'pilotOutcome',
   'tags',
   'description',
   'notes',
@@ -88,6 +95,9 @@ function toDraft(project: ProjectDto | undefined): ProjectDraft {
     currency: 'KZT',
     autoInvoice: project?.autoInvoice ?? false,
     billingDay: String(project?.billingDay ?? 1),
+    pilotStartsAt: project?.pilot.startsAt ?? '',
+    pilotEndsAt: project?.pilot.endsAt ?? '',
+    pilotOutcome: project?.pilot.outcome ?? '',
     tags: project?.tags.join(', ') ?? '',
     description: project?.description ?? '',
     notes: project?.notes ?? '',
@@ -355,6 +365,64 @@ function ProjectForm({
               </FormField>
             )}
           />
+        </div>
+        <div className="grid gap-4 rounded-lg border p-4 sm:grid-cols-3">
+          <Typography variant="bodySmMedium" className="sm:col-span-3">
+            Пилот с клиентом
+          </Typography>
+          {(
+            [
+              { name: 'pilotStartsAt', label: 'Начало' },
+              { name: 'pilotEndsAt', label: 'Окончание' },
+            ] as const
+          ).map((spec) => (
+            <form.Field
+              key={spec.name}
+              name={spec.name}
+              children={(field) => (
+                <FormField id={`${id}-${spec.name}`} label={spec.label} errors={fieldErrors[spec.name]}>
+                  <Input
+                    id={`${id}-${spec.name}`}
+                    type="date"
+                    value={field.state.value}
+                    aria-invalid={Boolean(fieldErrors[spec.name]?.length)}
+                    onBlur={field.handleBlur}
+                    onChange={(event) => {
+                      field.handleChange(event.target.value)
+                      clearError(spec.name)
+                    }}
+                  />
+                </FormField>
+              )}
+            />
+          ))}
+          <form.Field
+            name="pilotOutcome"
+            children={(field) => (
+              <FormField id={`${id}-pilotOutcome`} label="Решение клиента" errors={fieldErrors.pilotOutcome}>
+                <NativeSelect
+                  id={`${id}-pilotOutcome`}
+                  className="w-full"
+                  value={field.state.value}
+                  onChange={(event) => {
+                    field.handleChange(event.target.value)
+                    clearError('pilotOutcome')
+                  }}
+                >
+                  <NativeSelectOption value="">Ещё не принято</NativeSelectOption>
+                  {Object.entries(pilotOutcomeLabels).map(([value, label]) => (
+                    <NativeSelectOption key={value} value={value}>
+                      {label}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+              </FormField>
+            )}
+          />
+          <Typography variant="caption" tone="muted" className="sm:col-span-3">
+            За 7, 3 и 1 день до окончания и в последний день бот напомнит обсудить продолжение; после окончания —
+            одно напоминание, если решение не отмечено.
+          </Typography>
         </div>
         <form.Field
           name="description"
