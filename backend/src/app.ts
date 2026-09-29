@@ -52,7 +52,7 @@ export function createApp({ env, prisma }: CreateAppOptions) {
 
   app.get('/', (c) => {
     return c.json({
-      name: 'web_app_demo backend',
+      name: 'projects_hq backend',
       status: 'ok',
     })
   })
@@ -68,7 +68,7 @@ export function createApp({ env, prisma }: CreateAppOptions) {
   app.doc('/openapi.json', {
     openapi: '3.0.0',
     info: {
-      title: 'web_app_demo API',
+      title: 'projects_hq API',
       version: '1.0.0',
     },
   })

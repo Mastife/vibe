@@ -148,7 +148,7 @@ Create `web/.env` when the browser client should use a non-default API URL:
 VITE_API_URL=http://localhost:3000
 ```
 
-Test runners use the separate Docker Compose `postgres_test` service and the `TEST_DATABASE_URL` shape from `.env.example`/`backend/.env.example`. Web Playwright E2E starts `postgres_test`, applies migrations to `web_app_demo_test`, runs the browser flow, and tears down its test database volume by default.
+Test runners use the separate Docker Compose `postgres_test` service and the `TEST_DATABASE_URL` shape from `.env.example`/`backend/.env.example`. Web Playwright E2E starts `postgres_test`, applies migrations to `projects_hq_test`, runs the browser flow, and tears down its test database volume by default.
 
 ## Workspace Commands
 

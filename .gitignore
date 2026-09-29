@@ -10,7 +10,6 @@ coverage/
 playwright-report/
 test-results/
 web/e2e/.artifacts/
-mobile/.maestro/reports/
 
 # Runtime and logs
 *.log

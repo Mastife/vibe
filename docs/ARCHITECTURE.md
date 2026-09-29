@@ -57,12 +57,12 @@ Web follows these client rules:
 
 - TanStack Query owns server state.
 - TanStack Form owns form state.
-- Zod schemas come from `@web-app-demo/contracts`.
+- Zod schemas come from `@projects-hq/contracts`.
 - The API client centralizes base URL handling, auth headers, refresh/retry behavior, and error shape parsing.
 
 Do not create a new form, query, auth, or API abstraction until the existing pattern stops solving the current problem.
 
-`landing` is a separate Astro workspace for a static landing page. It does not own the auth flow and should not duplicate the browser client from `web`. If the landing project starts reading API data or shared DTOs, connect `@web-app-demo/contracts` and validate producer/consumer sides the same way as `web`.
+`landing` is a separate Astro workspace for a static landing page. It does not own the auth flow and should not duplicate the browser client from `web`. If the landing project starts reading API data or shared DTOs, connect `@projects-hq/contracts` and validate producer/consumer sides the same way as `web`.
 
 ## Testing
 
@@ -90,7 +90,7 @@ bun run --cwd backend prisma:deploy
 
 ## Local Infrastructure
 
-Local PostgreSQL is provided by Docker Compose, not by a native database install. The development service uses `postgres:18-alpine`, exposes `web_app_demo` on host port `54329`, and stores data in the `postgres_18_data` volume. The test service uses the same image with database `web_app_demo_test`; automated runners set `POSTGRES_TEST_PORT` to a repository-derived port when they need isolation. PostgreSQL 18 is intentional here because the backend schema relies on the native `uuidv7()` database function.
+Local PostgreSQL is provided by Docker Compose, not by a native database install. The development service uses `postgres:18-alpine`, exposes `projects_hq` on host port `54329`, and stores data in the `postgres_18_data` volume. The test service uses the same image with database `projects_hq_test`; automated runners set `POSTGRES_TEST_PORT` to a repository-derived port when they need isolation. PostgreSQL 18 is intentional here because the backend schema relies on the native `uuidv7()` database function.
 
 Keep `docker-compose.yml`, `backend/.env.example`, `.env.example`, and [LOCAL_DATABASE.md](LOCAL_DATABASE.md) aligned when changing local database names, ports, credentials, image tags, or volume paths.
 
