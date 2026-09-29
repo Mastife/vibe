@@ -94,7 +94,7 @@ const projectFieldsSchema = z.object({
 
 export const projectCreateSchema = projectFieldsSchema.extend({
   status: projectStatusSchema.default('ACTIVE'),
-  currency: currencySchema.default('RUB'),
+  currency: currencySchema.default('KZT'),
   tags: tagsSchema.default([]),
 })
 

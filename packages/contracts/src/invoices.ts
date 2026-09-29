@@ -47,7 +47,7 @@ const invoiceFieldsSchema = z.object({
 })
 
 export const invoiceCreateSchema = invoiceFieldsSchema.extend({
-  currency: currencySchema.default('RUB'),
+  currency: currencySchema.default('KZT'),
   status: invoiceStatusSchema.default('SENT'),
 })
 

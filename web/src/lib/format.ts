@@ -1,13 +1,13 @@
 const moneyFormatters = new Map<string, Intl.NumberFormat>()
 
-/** "15 000 RUB" - never converts between currencies. */
+/** "15 000 ₸" for KZT, otherwise "15 000 USD" - never converts between currencies. */
 export function formatMoney(amount: number, currency: string): string {
   let formatter = moneyFormatters.get(currency)
   if (!formatter) {
     formatter = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 })
     moneyFormatters.set(currency, formatter)
   }
-  return `${formatter.format(amount)} ${currency}`
+  return `${formatter.format(amount)} ${currency === 'KZT' ? '₸' : currency}`
 }
 
 export function formatMoneyList(entries: Array<{ currency: string; amount: number }>, empty = '—'): string {

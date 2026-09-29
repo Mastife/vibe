@@ -54,7 +54,7 @@ function ServerPaymentForm({ server, onDone }: { server: ServerDto; onDone: () =
   const form = useForm({
     defaultValues: {
       amount: String(server.monthlyCost),
-      currency: server.currency,
+      currency: 'KZT',
       paidAt: todayDateOnly(),
       periods: '1',
       note: '',
@@ -80,7 +80,6 @@ function ServerPaymentForm({ server, onDone }: { server: ServerDto; onDone: () =
 
   const fields: Array<{ name: FieldName; label: string; type?: 'date' | 'number'; inputMode?: 'decimal' | 'numeric'; description?: string }> = [
     { name: 'amount', label: 'Сумма', inputMode: 'decimal' },
-    { name: 'currency', label: 'Валюта' },
     { name: 'paidAt', label: 'Дата платежа', type: 'date' },
     { name: 'periods', label: 'Периодов оплачено', type: 'number', inputMode: 'numeric', description: 'Сколько периодов (месяцев, кварталов или лет) покрывает платёж.' },
     { name: 'note', label: 'Комментарий' },

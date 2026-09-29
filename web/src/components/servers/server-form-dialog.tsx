@@ -61,7 +61,6 @@ const textFields: TextSpec[] = [
   { name: 'specs', label: 'Конфигурация', placeholder: '2 vCPU, 4 GB, 60 GB NVMe' },
   { name: 'panelUrl', label: 'Панель провайдера', placeholder: 'https://timeweb.cloud/my/servers' },
   { name: 'monthlyCost', label: 'Стоимость за период', placeholder: '1500', inputMode: 'decimal' },
-  { name: 'currency', label: 'Валюта', placeholder: 'RUB' },
   { name: 'paidUntil', label: 'Оплачен до', type: 'date' },
 ]
 
@@ -74,7 +73,7 @@ function toDraft(server: ServerDto | undefined): ServerDraft {
     specs: server?.specs ?? '',
     panelUrl: server?.panelUrl ?? '',
     monthlyCost: server ? String(server.monthlyCost) : '',
-    currency: server?.currency ?? 'RUB',
+    currency: 'KZT',
     billingPeriod: server?.billingPeriod ?? 'MONTHLY',
     paidUntil: server?.paidUntil ?? '',
     status: server?.status ?? 'ACTIVE',

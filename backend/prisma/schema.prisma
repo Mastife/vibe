@@ -93,7 +93,7 @@ model Server {
   specs         String?
   panelUrl      String?         @map("panel_url")
   monthlyCost   Decimal         @default(0) @map("monthly_cost") @db.Decimal(14, 2)
-  currency      String          @default("RUB")
+  currency      String          @default("KZT")
   billingPeriod BillingPeriod   @default(MONTHLY) @map("billing_period")
   paidUntil     DateTime?       @map("paid_until") @db.Date
   status        ServerStatus    @default(ACTIVE)
@@ -135,7 +135,7 @@ model Project {
   clientId         String?          @map("client_id") @db.Uuid
   serverId         String?          @map("server_id") @db.Uuid
   monthlyFee       Decimal?         @map("monthly_fee") @db.Decimal(14, 2)
-  currency         String           @default("RUB")
+  currency         String           @default("KZT")
   tags             String[]         @default([])
   notes            String?
   lastHealthStatus HealthStatus     @default(UNKNOWN) @map("last_health_status")
@@ -182,7 +182,7 @@ model Invoice {
   projectId String?       @map("project_id") @db.Uuid
   title     String
   amount    Decimal       @db.Decimal(14, 2)
-  currency  String        @default("RUB")
+  currency  String        @default("KZT")
   status    InvoiceStatus @default(SENT)
   issuedAt  DateTime      @map("issued_at") @db.Date
   dueAt     DateTime?     @map("due_at") @db.Date
