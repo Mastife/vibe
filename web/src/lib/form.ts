@@ -25,7 +25,3 @@ export function fieldNameGuard<TField extends string>(fields: readonly TField[])
   return (value: unknown): value is TField => typeof value === 'string' && (fields as readonly string[]).includes(value)
 }
 
-/** Splits "prod, vps" style input into trimmed, de-duplicated tags. */
-export function parseTags(value: string): string[] {
-  return [...new Set(value.split(',').map((tag) => tag.trim()).filter(Boolean))]
-}

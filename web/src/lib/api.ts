@@ -25,6 +25,8 @@ import {
   serverDetailResponseSchema,
   serverListResponseSchema,
   serverResponseSchema,
+  tagListResponseSchema,
+  tagMutationResponseSchema,
   type AuthResponse,
   type AuthStatusResponse,
   type ClientCreatePayload,
@@ -33,6 +35,8 @@ import {
   type ClientUpdatePayload,
   type AnalyticsResponse,
   type DashboardResponse,
+  type TagListResponse,
+  type TagMutationResponse,
   type DomainCreatePayload,
   type DomainListResponse,
   type DomainResponse,
@@ -199,6 +203,27 @@ export class ApiClient {
 
   checkProject(id: string): Promise<HealthCheckResponse> {
     return this.request(`/api/projects/${id}/check`, healthCheckResponseSchema, { method: 'POST', auth: true })
+  }
+
+  // Tags
+
+  listTags(): Promise<TagListResponse> {
+    return this.request('/api/tags', tagListResponseSchema, { auth: true })
+  }
+
+  renameTag(name: string, newName: string): Promise<TagMutationResponse> {
+    return this.request(`/api/tags/${encodeURIComponent(name)}`, tagMutationResponseSchema, {
+      method: 'PATCH',
+      body: { name: newName },
+      auth: true,
+    })
+  }
+
+  deleteTag(name: string): Promise<TagMutationResponse> {
+    return this.request(`/api/tags/${encodeURIComponent(name)}`, tagMutationResponseSchema, {
+      method: 'DELETE',
+      auth: true,
+    })
   }
 
   // Domains

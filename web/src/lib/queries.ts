@@ -24,6 +24,7 @@ export const queryKeys = {
   project: (id: string) => ['projects', id] as const,
   servers: ['servers'] as const,
   domains: ['domains'] as const,
+  tags: ['tags'] as const,
   server: (id: string) => ['servers', id] as const,
   clients: ['clients'] as const,
   invoices: (query: InvoiceListQuery = {}) => ['invoices', query] as const,
@@ -71,6 +72,26 @@ export function useProject(id: string) {
 export function useServers() {
   const { api } = useAuth()
   return useQuery({ queryKey: queryKeys.servers, queryFn: () => api.listServers() })
+}
+
+export function useTags() {
+  const { api } = useAuth()
+  return useQuery({ queryKey: queryKeys.tags, queryFn: () => api.listTags() })
+}
+
+export function useRenameTag() {
+  const { api } = useAuth()
+  const invalidate = useInvalidateAll()
+  return useMutation({
+    mutationFn: ({ name, newName }: { name: string; newName: string }) => api.renameTag(name, newName),
+    onSuccess: invalidate,
+  })
+}
+
+export function useDeleteTag() {
+  const { api } = useAuth()
+  const invalidate = useInvalidateAll()
+  return useMutation({ mutationFn: (name: string) => api.deleteTag(name), onSuccess: invalidate })
 }
 
 export function useDomains() {
