@@ -81,7 +81,7 @@ export function ProjectDetailPage() {
   }
 
   const { project, healthRuns, invoices } = detail.data
-  const monitoredUrl = project.healthCheckUrl ?? project.productionUrl
+  const target = project.monitorTarget
   const sslDays = daysUntil(project.health.sslExpiresAt)
 
   function handleCheck() {
@@ -107,7 +107,7 @@ export function ProjectDetailPage() {
   return (
     <>
       <PageHeader title={project.name} description={project.description ?? undefined}>
-        <Button type="button" variant="outline" onClick={handleCheck} disabled={!monitoredUrl || checkProject.isPending}>
+        <Button type="button" variant="outline" onClick={handleCheck} disabled={!target || checkProject.isPending}>
           <HugeiconsIcon icon={Refresh01Icon} strokeWidth={2} data-icon="inline-start" />
           {checkProject.isPending ? 'Проверяем...' : 'Проверить сейчас'}
         </Button>
@@ -137,7 +137,9 @@ export function ProjectDetailPage() {
           <CardHeader>
             <CardTitle>Мониторинг</CardTitle>
             <CardDescription>
-              {monitoredUrl ? `Проверяется ${monitoredUrl}` : 'Укажите адрес продакшена, чтобы включить проверки.'}
+              {target
+                ? `Проверяется ${target}`
+                : 'Укажите адрес продакшена, health-check URL или Docker-контейнер по SSH, чтобы включить проверки.'}
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">

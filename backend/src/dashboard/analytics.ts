@@ -52,7 +52,7 @@ export function buildAnalytics(input: AnalyticsInput): AnalyticsResponse {
   const today = todayUtc(now)
   const days = Array.from({ length: HEALTH_DAYS }, (_, index) => toDateOnly(addDays(today, index - HEALTH_DAYS + 1)))
   const liveProjects = input.projects.filter((project) => project.status !== 'ARCHIVED')
-  const monitored = liveProjects.filter((project) => project.productionUrl || project.healthCheckUrl)
+  const monitored = liveProjects.filter((project) => project.monitorTarget)
   const monitoredIds = new Set(monitored.map((project) => project.id))
   const healthRows = input.dailyHealth.filter((row) => monitoredIds.has(row.projectId))
 

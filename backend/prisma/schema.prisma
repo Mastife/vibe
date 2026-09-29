@@ -138,6 +138,9 @@ model Project {
   repoUrl             String?          @map("repo_url")
   productionUrl       String?          @map("production_url")
   healthCheckUrl      String?          @map("health_check_url")
+  /// Container check over SSH for services without an HTTP endpoint (e.g. long-polling bots).
+  sshHost             String?          @map("ssh_host")
+  dockerContainer     String?          @map("docker_container")
   clientId            String?          @map("client_id") @db.Uuid
   serverId            String?          @map("server_id") @db.Uuid
   monthlyFee          Decimal?         @map("monthly_fee") @db.Decimal(14, 2)

@@ -33,11 +33,23 @@ maybeDescribe('projects hq API integration', () => {
     }
     throw new Error(`Unexpected outbound request: ${String(input)}`)
   }
+  const dockerProbes: Array<{ sshHost: string; container: string }> = []
+  const dockerState = { running: true }
   const services = createServices(
     { env, prisma },
     {
       fetchImpl: notificationFetch,
       check: (url, options) => checkUrl(url, { ...options, readCertificateExpiry: async () => null }),
+      checkDocker: async (sshHost, container) => {
+        dockerProbes.push({ sshHost, container })
+        return {
+          ok: dockerState.running,
+          statusCode: null,
+          latencyMs: 40,
+          error: dockerState.running ? null : `Контейнер ${container}: exited`,
+          sslExpiresAt: null,
+        }
+      },
     },
   )
   const app = createApp({ env, prisma, services })
@@ -55,6 +67,8 @@ maybeDescribe('projects hq API integration', () => {
     await prisma.user.deleteMany()
     telegramMessages.length = 0
     targetState.healthy = true
+    dockerState.running = true
+    dockerProbes.length = 0
   })
 
   afterAll(async () => {
@@ -540,5 +554,49 @@ maybeDescribe('projects hq API integration', () => {
       { name: 'bot', count: 3 },
       { name: 'python', count: 1 },
     ])
+  })
+
+  test('monitors a bot container over SSH when there is no HTTP endpoint', async () => {
+    const token = await registerAdmin()
+
+    const halfTarget = await api('POST', '/api/projects', { name: 'bonustar', sshHost: 'ubuntu@194.238.42.51' }, token)
+    expect(halfTarget.status).toBe(400)
+    const badHost = await api(
+      'POST',
+      '/api/projects',
+      { name: 'bonustar', sshHost: 'ubuntu@host; rm -rf /', dockerContainer: 'bonustar-bot' },
+      token,
+    )
+    expect(badHost.status).toBe(400)
+
+    const created = await api(
+      'POST',
+      '/api/projects',
+      { name: 'bonustar', sshHost: 'ubuntu@194.238.42.51', dockerContainer: 'bonustar-bot' },
+      token,
+    )
+    expect(created.status).toBe(201)
+    expect(created.body.project.monitorTarget).toBe('docker bonustar-bot @ ubuntu@194.238.42.51')
+    const projectId = created.body.project.id as string
+
+    const dashboard = await api('GET', '/api/dashboard', undefined, token)
+    expect(dashboard.body.monitoredProjects.map((entry: { id: string }) => entry.id)).toEqual([projectId])
+    expect(dashboard.body.alerts.map((alert: { kind: string }) => alert.kind)).not.toContain('PROJECTS_UNMONITORED')
+
+    const up = await api('POST', `/api/projects/${projectId}/check`, undefined, token)
+    expect(up.body.run).toMatchObject({ ok: true, statusCode: null, latencyMs: 40 })
+    expect(dockerProbes).toEqual([{ sshHost: 'ubuntu@194.238.42.51', container: 'bonustar-bot' }])
+
+    dockerState.running = false
+    await services.healthService.checkAll()
+    const confirmed = await api('POST', `/api/projects/${projectId}/check`, undefined, token)
+    expect(confirmed.body.project.health).toMatchObject({ status: 'DOWN', error: 'Контейнер bonustar-bot: exited' })
+    expect(telegramMessages.at(-1)).toContain('docker bonustar-bot @ ubuntu@194.238.42.51')
+
+    // A health-check URL takes precedence over the container.
+    const withUrl = await api('PATCH', `/api/projects/${projectId}`, { healthCheckUrl: target.url.toString() }, token)
+    expect(withUrl.body.project.monitorTarget).toBe(target.url.toString())
+    const cleared = await api('PATCH', `/api/projects/${projectId}`, { sshHost: null, dockerContainer: null, healthCheckUrl: null }, token)
+    expect(cleared.body.project.monitorTarget).toBeNull()
   })
 })

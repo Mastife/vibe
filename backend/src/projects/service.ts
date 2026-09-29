@@ -8,6 +8,7 @@ import type {
 import type { DbClient } from '../db'
 import type { Prisma } from '../generated/prisma/client'
 import { toHealthRunDto } from '../health/dto'
+import { describeTarget, monitorTarget } from '../health/target'
 import { AppError } from '../http/errors'
 import { mapPrismaError } from '../http/prisma-errors'
 import { invoiceInclude, toInvoiceDto } from '../invoices/dto'
@@ -90,6 +91,8 @@ export class ProjectsService {
           repoUrl: payload.repoUrl ?? null,
           productionUrl: payload.productionUrl ?? null,
           healthCheckUrl: payload.healthCheckUrl ?? null,
+          sshHost: payload.sshHost ?? null,
+          dockerContainer: payload.dockerContainer ?? null,
           clientId: payload.clientId ?? null,
           serverId: payload.serverId ?? null,
           monthlyFee: payload.monthlyFee ?? null,
@@ -139,6 +142,8 @@ export class ProjectsService {
           repoUrl: payload.repoUrl,
           productionUrl: payload.productionUrl,
           healthCheckUrl: payload.healthCheckUrl,
+          sshHost: payload.sshHost,
+          dockerContainer: payload.dockerContainer,
           clientId: payload.clientId,
           serverId: payload.serverId,
           monthlyFee: payload.monthlyFee,
@@ -231,6 +236,9 @@ export function toProjectDto(row: ProjectRow, stats?: UptimeStats, now = new Dat
     repoUrl: row.repoUrl,
     productionUrl: row.productionUrl,
     healthCheckUrl: row.healthCheckUrl,
+    sshHost: row.sshHost,
+    dockerContainer: row.dockerContainer,
+    monitorTarget: describeTarget(monitorTarget(row)),
     clientId: row.clientId,
     serverId: row.serverId,
     client: row.client,

@@ -34,7 +34,7 @@ export function ProjectsTable({ projects, checkingId, onCheck, onEdit, onDelete 
       </TableHeader>
       <TableBody>
         {projects.map((project) => {
-          const monitoredUrl = project.healthCheckUrl ?? project.productionUrl
+          const target = project.monitorTarget
           return (
             <TableRow key={project.id}>
               <TableCell>
@@ -45,7 +45,7 @@ export function ProjectsTable({ projects, checkingId, onCheck, onEdit, onDelete 
                     </Link>
                   </Typography>
                   <Typography variant="caption" tone="muted">
-                    {monitoredUrl ? hostnameOf(monitoredUrl) : 'без адреса'}
+                    {!target ? 'без мониторинга' : target.startsWith('http') ? hostnameOf(target) : target}
                   </Typography>
                 </div>
               </TableCell>
@@ -69,7 +69,7 @@ export function ProjectsTable({ projects, checkingId, onCheck, onEdit, onDelete 
                     variant="ghost"
                     size="icon-sm"
                     title="Проверить сейчас"
-                    disabled={!monitoredUrl || checkingId === project.id}
+                    disabled={!target || checkingId === project.id}
                     onClick={() => onCheck(project)}
                   >
                     <HugeiconsIcon icon={Refresh01Icon} strokeWidth={2} />

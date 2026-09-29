@@ -6,7 +6,9 @@ import { AppError } from '../http/errors'
 import { addDays } from '../lib/dates'
 import { escapeHtml, type Notifier } from '../notifications/telegram'
 import { checkUrl, type HttpCheckResult } from './checker'
+import { checkDockerOverSsh } from './docker-checker'
 import { toHealthRunDto } from './dto'
+import { describeTarget, monitorTarget, type MonitorTarget } from './target'
 import { nextHealthState } from './transition'
 
 type MonitoredProject = {
@@ -14,6 +16,8 @@ type MonitoredProject = {
   name: string
   healthCheckUrl: string | null
   productionUrl: string | null
+  sshHost: string | null
+  dockerContainer: string | null
   lastHealthStatus: HealthStatus
   consecutiveFailures: number
 }
@@ -23,16 +27,14 @@ const monitoredSelect = {
   name: true,
   healthCheckUrl: true,
   productionUrl: true,
+  sshHost: true,
+  dockerContainer: true,
   lastHealthStatus: true,
   consecutiveFailures: true,
 } as const
 
 const batchConcurrency = 5
 
-/** The explicit health-check URL wins; otherwise the production URL is probed. */
-export function monitoredUrl(project: Pick<MonitoredProject, 'healthCheckUrl' | 'productionUrl'>): string | null {
-  return project.healthCheckUrl ?? project.productionUrl
-}
 
 export class HealthService {
   constructor(
@@ -43,29 +45,34 @@ export class HealthService {
     >,
     private readonly notifier: Notifier | null,
     private readonly check: typeof checkUrl = checkUrl,
+    private readonly checkDocker: typeof checkDockerOverSsh = checkDockerOverSsh,
   ) {}
 
   async checkProject(id: string): Promise<HealthCheckRunDto> {
     const project = await this.db.project.findUnique({ where: { id }, select: monitoredSelect })
     if (!project) throw new AppError(404, 'NOT_FOUND', 'Проект не найден')
 
-    const url = monitoredUrl(project)
-    if (!url) {
+    const target = monitorTarget(project)
+    if (!target) {
       throw new AppError(
         400,
         'BAD_REQUEST',
-        'У проекта нет адреса для проверки: заполните адрес продакшена или health-check URL',
+        'Проекту нечего проверять: заполните адрес продакшена, health-check URL или Docker-контейнер по SSH',
       )
     }
 
-    return this.runCheck(project, url)
+    return this.runCheck(project, target)
   }
 
   async checkAll(): Promise<HealthRunAllResponse> {
     const projects = await this.db.project.findMany({
       where: {
         status: { not: 'ARCHIVED' },
-        OR: [{ healthCheckUrl: { not: null } }, { productionUrl: { not: null } }],
+        OR: [
+          { healthCheckUrl: { not: null } },
+          { productionUrl: { not: null } },
+          { sshHost: { not: null }, dockerContainer: { not: null } },
+        ],
       },
       select: monitoredSelect,
       orderBy: { name: 'asc' },
@@ -77,10 +84,10 @@ export class HealthService {
 
     const workers = Array.from({ length: Math.min(batchConcurrency, queue.length) }, async () => {
       for (let project = queue.shift(); project; project = queue.shift()) {
-        const url = monitoredUrl(project)
-        if (!url) continue
+        const target = monitorTarget(project)
+        if (!target) continue
         try {
-          const run = await this.runCheck(project, url)
+          const run = await this.runCheck(project, target)
           if (run.ok) up += 1
           else down += 1
         } catch (error) {
@@ -100,8 +107,12 @@ export class HealthService {
     return result.count
   }
 
-  private async runCheck(project: MonitoredProject, url: string): Promise<HealthCheckRunDto> {
-    const result = await this.check(url, { timeoutMs: this.env.HEALTH_CHECK_TIMEOUT_MS })
+  private async runCheck(project: MonitoredProject, target: MonitorTarget): Promise<HealthCheckRunDto> {
+    const timeoutMs = this.env.HEALTH_CHECK_TIMEOUT_MS
+    const result =
+      target.kind === 'http'
+        ? await this.check(target.url, { timeoutMs })
+        : await this.checkDocker(target.sshHost, target.container, { timeoutMs })
     const next = nextHealthState(
       { status: project.lastHealthStatus, consecutiveFailures: project.consecutiveFailures },
       result.ok,
@@ -136,7 +147,7 @@ export class HealthService {
       }),
     ])
 
-    await this.notifyTransition(project, url, next.status, result)
+    await this.notifyTransition(project, describeTarget(target) ?? '', next.status, result)
 
     return toHealthRunDto(run)
   }
@@ -163,7 +174,7 @@ export class HealthService {
       )
     } else if (nextStatus === 'UP' && previous === 'DOWN') {
       await this.notifier.send(
-        `🟢 <b>${escapeHtml(project.name)}</b> снова работает (HTTP ${result.statusCode ?? '—'}, ${result.latencyMs} мс)`,
+        `🟢 <b>${escapeHtml(project.name)}</b> снова работает (${result.statusCode ? `HTTP ${result.statusCode}, ` : ''}${result.latencyMs} мс)`,
       )
     }
   }

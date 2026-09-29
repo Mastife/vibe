@@ -35,7 +35,7 @@ export class DashboardService {
     const alerts = buildAlerts({ projects, servers, openInvoices, domains, now })
     const liveProjects = projects.filter((project) => project.status !== 'ARCHIVED')
     const monitoredProjects = liveProjects
-      .filter((project) => project.productionUrl || project.healthCheckUrl)
+      .filter((project) => project.monitorTarget)
       .sort(compareProjectHealth)
     const activeServers = servers.filter((server) => server.status !== 'DECOMMISSIONED')
 
