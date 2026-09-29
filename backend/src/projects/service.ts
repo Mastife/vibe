@@ -8,7 +8,7 @@ import type {
 import type { DbClient } from '../db'
 import type { Prisma } from '../generated/prisma/client'
 import { toHealthRunDto } from '../health/dto'
-import { describeTarget, monitorTarget } from '../health/target'
+import { describePlan, monitorPlan } from '../health/target'
 import { AppError } from '../http/errors'
 import { mapPrismaError } from '../http/prisma-errors'
 import { invoiceInclude, toInvoiceDto } from '../invoices/dto'
@@ -238,7 +238,7 @@ export function toProjectDto(row: ProjectRow, stats?: UptimeStats, now = new Dat
     healthCheckUrl: row.healthCheckUrl,
     sshHost: row.sshHost,
     dockerContainer: row.dockerContainer,
-    monitorTarget: describeTarget(monitorTarget(row)),
+    monitorTarget: describePlan(monitorPlan(row)),
     clientId: row.clientId,
     serverId: row.serverId,
     client: row.client,

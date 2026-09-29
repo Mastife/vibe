@@ -8,7 +8,7 @@ import { escapeHtml, type Notifier } from '../notifications/telegram'
 import { checkUrl, type HttpCheckResult } from './checker'
 import { checkDockerOverSsh } from './docker-checker'
 import { toHealthRunDto } from './dto'
-import { describeTarget, monitorTarget, type MonitorTarget } from './target'
+import { combineResults, describePlan, monitorPlan, type MonitorPlan } from './target'
 import { nextHealthState } from './transition'
 
 type MonitoredProject = {
@@ -52,8 +52,8 @@ export class HealthService {
     const project = await this.db.project.findUnique({ where: { id }, select: monitoredSelect })
     if (!project) throw new AppError(404, 'NOT_FOUND', 'Проект не найден')
 
-    const target = monitorTarget(project)
-    if (!target) {
+    const plan = monitorPlan(project)
+    if (!plan) {
       throw new AppError(
         400,
         'BAD_REQUEST',
@@ -61,7 +61,7 @@ export class HealthService {
       )
     }
 
-    return this.runCheck(project, target)
+    return this.runCheck(project, plan)
   }
 
   async checkAll(): Promise<HealthRunAllResponse> {
@@ -84,10 +84,10 @@ export class HealthService {
 
     const workers = Array.from({ length: Math.min(batchConcurrency, queue.length) }, async () => {
       for (let project = queue.shift(); project; project = queue.shift()) {
-        const target = monitorTarget(project)
-        if (!target) continue
+        const plan = monitorPlan(project)
+        if (!plan) continue
         try {
-          const run = await this.runCheck(project, target)
+          const run = await this.runCheck(project, plan)
           if (run.ok) up += 1
           else down += 1
         } catch (error) {
@@ -107,12 +107,13 @@ export class HealthService {
     return result.count
   }
 
-  private async runCheck(project: MonitoredProject, target: MonitorTarget): Promise<HealthCheckRunDto> {
+  private async runCheck(project: MonitoredProject, plan: MonitorPlan): Promise<HealthCheckRunDto> {
     const timeoutMs = this.env.HEALTH_CHECK_TIMEOUT_MS
-    const result =
-      target.kind === 'http'
-        ? await this.check(target.url, { timeoutMs })
-        : await this.checkDocker(target.sshHost, target.container, { timeoutMs })
+    const [web, container] = await Promise.all([
+      plan.url ? this.check(plan.url, { timeoutMs }) : null,
+      plan.docker ? this.checkDocker(plan.docker.sshHost, plan.docker.container, { timeoutMs }) : null,
+    ])
+    const result = combineResults(web, container)
     const next = nextHealthState(
       { status: project.lastHealthStatus, consecutiveFailures: project.consecutiveFailures },
       result.ok,
@@ -147,7 +148,7 @@ export class HealthService {
       }),
     ])
 
-    await this.notifyTransition(project, describeTarget(target) ?? '', next.status, result)
+    await this.notifyTransition(project, describePlan(plan) ?? '', next.status, result)
 
     return toHealthRunDto(run)
   }
