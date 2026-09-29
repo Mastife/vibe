@@ -1,2 +1,13 @@
+import { z } from 'zod'
+
+// Contracts own validation messages for every consumer; the product UI is Russian.
+z.config(z.locales.ru())
+
 export * from './auth'
+export * from './clients'
+export * from './common'
+export * from './dashboard'
 export * from './errors'
+export * from './invoices'
+export * from './projects'
+export * from './servers'

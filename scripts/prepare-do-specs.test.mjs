@@ -21,16 +21,17 @@ describe('prepare-do-specs', () => {
     }
   });
 
-  test('rejects the placeholder backend worker command', () => {
+  test('defaults the backend worker to the monitoring scheduler command', () => {
     const result = runPrepareSpecs({
       DO_BACKEND_WORKER_ENABLED: 'true',
-      DO_BACKEND_WORKER_RUN_COMMAND: 'bun run start:worker',
     });
 
-    expect(result.status).not.toBe(0);
-    expect(`${result.stdout}\n${result.stderr}`).toContain(
-      'must point at a real long-running worker command',
-    );
+    expect(result.stderr).toBe('');
+    expect(result.status).toBe(0);
+
+    const spec = readFileSync(backendSpecPath, 'utf8');
+    expect(spec).toContain('workers:');
+    expect(spec).toContain('run_command: "bun run start:worker"');
   });
 
   test('rejects invalid backend cron schedules before writing deploy specs', () => {
@@ -126,7 +127,7 @@ function runPrepareSpecs(extraEnv = {}, { skipReleaseGitCheck = true } = {}) {
       PATH: process.env.PATH ?? '',
       HOME: process.env.HOME ?? '',
       ...testOnlyEnv,
-      DO_PROJECT_SLUG: 'vibecoding-template-test',
+      DO_PROJECT_SLUG: 'projects-hq-test',
       DO_GITHUB_REPO: 'owner/repo',
       DO_GIT_BRANCH: 'main',
       JWT_SECRET: 'abcdefghijklmnopqrstuvwxyz123456',

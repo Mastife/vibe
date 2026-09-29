@@ -2,7 +2,7 @@ import type {
   LoginRequest,
   RegisterPayload,
   UserDto,
-} from '@web-app-demo/contracts'
+} from '@projects-hq/contracts'
 
 import type { DbClient } from '../db'
 import type { AppEnv } from '../env'
@@ -30,14 +30,31 @@ export class AuthService {
     private readonly env: AppEnv,
   ) {}
 
+  /** The first account is always allowed; later ones only through ADMIN_EMAILS. */
+  async registrationStatus() {
+    const userCount = await this.db.user.count()
+    return {
+      registrationOpen: userCount === 0 || this.env.ADMIN_EMAILS.length > 0,
+      firstRun: userCount === 0,
+    }
+  }
+
   async register(input: RegisterPayload, metadata: SessionMetadata) {
+    if (!(await this.isRegistrationOpenFor(input.email))) {
+      throw new AppError(
+        403,
+        'FORBIDDEN',
+        'Регистрация закрыта: панель уже настроена. Войдите под существующим аккаунтом.',
+      )
+    }
+
     const existingUser = await this.db.user.findUnique({
       where: { email: input.email },
       select: { id: true },
     })
 
     if (existingUser) {
-      throw new AppError(409, 'CONFLICT', 'User with this email already exists')
+      throw new AppError(409, 'CONFLICT', 'Пользователь с таким email уже существует')
     }
 
     const passwordHash = await hashPassword(input.password)
@@ -52,7 +69,7 @@ export class AuthService {
       })
       .catch((error: unknown) => {
         if (isUniqueConstraintError(error)) {
-          throw new AppError(409, 'CONFLICT', 'User with this email already exists')
+          throw new AppError(409, 'CONFLICT', 'Пользователь с таким email уже существует')
         }
 
         throw error
@@ -67,12 +84,12 @@ export class AuthService {
     })
 
     if (!user) {
-      throw new AppError(401, 'UNAUTHORIZED', 'Invalid email or password')
+      throw new AppError(401, 'UNAUTHORIZED', 'Неверный email или пароль')
     }
 
     const passwordMatches = await verifyPassword(input.password, user.passwordHash)
     if (!passwordMatches) {
-      throw new AppError(401, 'UNAUTHORIZED', 'Invalid email or password')
+      throw new AppError(401, 'UNAUTHORIZED', 'Неверный email или пароль')
     }
 
     return this.issueSession(user, metadata)
@@ -80,7 +97,7 @@ export class AuthService {
 
   async refresh(refreshToken: string | undefined, metadata: SessionMetadata) {
     if (!refreshToken) {
-      throw new AppError(401, 'UNAUTHORIZED', 'Refresh token is required')
+      throw new AppError(401, 'UNAUTHORIZED', 'Нет refresh-токена')
     }
 
     const refreshTokenHash = hashRefreshToken(refreshToken)
@@ -99,7 +116,7 @@ export class AuthService {
     })
 
     if (!currentSession) {
-      throw new AppError(401, 'UNAUTHORIZED', 'Refresh session is invalid or expired')
+      throw new AppError(401, 'UNAUTHORIZED', 'Сессия недействительна или истекла')
     }
 
     const nextRefreshToken = createRefreshToken()
@@ -119,7 +136,7 @@ export class AuthService {
       })
 
       if (revokeResult.count !== 1) {
-        throw new AppError(401, 'UNAUTHORIZED', 'Refresh session is invalid or expired')
+        throw new AppError(401, 'UNAUTHORIZED', 'Сессия недействительна или истекла')
       }
 
       return tx.authSession.create({
@@ -150,11 +167,11 @@ export class AuthService {
 
   async getMe(accessToken: string | undefined) {
     if (!accessToken) {
-      throw new AppError(401, 'UNAUTHORIZED', 'Access token is required')
+      throw new AppError(401, 'UNAUTHORIZED', 'Требуется вход в систему')
     }
 
     const payload = await verifyAccessToken(accessToken, this.env).catch(() => {
-      throw new AppError(401, 'UNAUTHORIZED', 'Access token is invalid or expired')
+      throw new AppError(401, 'UNAUTHORIZED', 'Токен доступа недействителен или истёк')
     })
 
     const session = await this.db.authSession.findFirst({
@@ -172,7 +189,7 @@ export class AuthService {
     })
 
     if (!session) {
-      throw new AppError(401, 'UNAUTHORIZED', 'Session is invalid or expired')
+      throw new AppError(401, 'UNAUTHORIZED', 'Сессия недействительна или истекла')
     }
 
     return {
@@ -192,6 +209,11 @@ export class AuthService {
         revokedAt: new Date(),
       },
     })
+  }
+
+  private async isRegistrationOpenFor(email: string) {
+    if (this.env.ADMIN_EMAILS.includes(email)) return true
+    return (await this.db.user.count()) === 0
   }
 
   private async issueSession(user: UserRecord, metadata: SessionMetadata) {

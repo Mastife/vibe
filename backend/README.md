@@ -1,6 +1,6 @@
 # Backend
 
-The backend owns the API, authentication, integrations, persistence, and server-side business logic. Web and mobile clients rely on the shared data contract in `packages/contracts`.
+The backend owns the Projects HQ API, the monitoring worker, authentication, persistence, and integrations (Telegram, GitHub). The web client relies on the shared data contract in `packages/contracts`.
 
 ## Stack
 
@@ -27,9 +27,11 @@ bun run --cwd backend typecheck
 bun run --cwd backend test
 bun run --cwd backend test:unit
 bun run --cwd backend test:integration
+bun run --cwd backend dev:worker
+bun run --cwd backend seed
 bun run --cwd backend start:api
 bun run --cwd backend start:worker
-bun run --cwd backend start:cron -- noop
+bun run --cwd backend start:cron -- health:check
 bun run --cwd backend smoke:docker
 bun run --cwd backend prisma:validate
 bun run --cwd backend prisma:generate
@@ -39,15 +41,15 @@ bun run --cwd backend prisma:deploy
 
 On Windows PowerShell, use `Copy-Item backend/.env.example backend/.env` instead of `cp`. Workspace aliases are also available from the repository root: `bun run dev:backend`, `bun run build:backend`, `bun run typecheck:backend`, and `bun run test:backend`.
 
-`bun run test:integration` starts `postgres_test` from `../docker-compose.yml`, applies Prisma migrations to `web_app_demo_test`, and runs DB-backed auth API tests. If Docker is managed separately, set `TEST_SKIP_DOCKER=1` and `TEST_DATABASE_URL`. The test database name must end with `_test` unless `TEST_ALLOW_NON_TEST_DATABASE=1` is set intentionally.
+`bun run test:integration` starts `postgres_test` from `../docker-compose.yml`, applies Prisma migrations to `projects_hq_test`, and runs DB-backed auth API tests. If Docker is managed separately, set `TEST_SKIP_DOCKER=1` and `TEST_DATABASE_URL`. The test database name must end with `_test` unless `TEST_ALLOW_NON_TEST_DATABASE=1` is set intentionally.
 
 `bun run smoke:docker` builds the backend Docker image, starts it against `postgres_test`, waits for `/health`, and removes only the smoke container it created.
 
 ## Env
 
-Copy `backend/.env.example` to `backend/.env` for local development. The example `DATABASE_URL` matches the Docker Compose `postgres` service documented in [../docs/LOCAL_DATABASE.md](../docs/LOCAL_DATABASE.md): database `web_app_demo`, user `postgres`, password `postgres`, host port `54329`.
+Copy `backend/.env.example` to `backend/.env` for local development. The example `DATABASE_URL` matches the Docker Compose `postgres` service documented in [../docs/LOCAL_DATABASE.md](../docs/LOCAL_DATABASE.md): database `projects_hq`, user `superuser`, password `superpassword`, host port `54329`.
 
-The example `TEST_DATABASE_URL` matches the Docker Compose `postgres_test` service: database `web_app_demo_test`, user `postgres`, password `postgres`, manual host port `54330`. Automated runners may replace the port with a repository-derived value so parallel checkouts do not collide.
+The example `TEST_DATABASE_URL` matches the Docker Compose `postgres_test` service: database `projects_hq_test`, user `superuser`, password `superpassword`, manual host port `54330`. Automated runners may replace the port with a repository-derived value so parallel checkouts do not collide.
 
 Keep an explicit username and password in Prisma connection URLs even on local native PostgreSQL installs. Peer-auth style URLs without a user can make Prisma schema-engine commands such as `migrate dev`, `migrate deploy`, and `db push` fail with an unhelpful generic engine error.
 
@@ -55,39 +57,49 @@ Keep an explicit username and password in Prisma connection URLs even on local n
 
 `COOKIE_SECURE=false` is appropriate for local HTTP; production should use `COOKIE_SECURE=true` with exact HTTPS origins in `CORS_ORIGINS`. Production browser auth uses `SameSite=None; Secure` refresh cookies, so wildcard, empty, or path-bearing CORS origins are invalid. Cookie-backed `refresh` and `logout` requests also require a trusted `Origin` in production cookie mode.
 
-DigitalOcean Spaces env is optional. Leave `SPACES_*` blank until the product needs uploads, media, exports, or downloads. When storage is active, configure the complete Spaces group in `backend/.env` and follow [../docs/STORAGE.md](../docs/STORAGE.md).
+Panel-specific settings: `ADMIN_EMAILS` (extra accounts allowed to register after the first admin), `APP_URL` (links in notifications), `HEALTH_CHECK_INTERVAL_SECONDS`, `HEALTH_CHECK_TIMEOUT_MS`, `HEALTH_HISTORY_RETENTION_DAYS`, `GITHUB_TOKEN` + `GITHUB_SYNC_INTERVAL_SECONDS`, `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` (both or neither), and `DAILY_DIGEST_HOUR_UTC`.
+
+DigitalOcean Spaces env is optional and unused by the panel today. Leave `SPACES_*` blank; the storage service stays available for future uploads and follows [../docs/STORAGE.md](../docs/STORAGE.md).
 
 ## Runtime Entrypoints
 
 The backend is one workspace with one Prisma schema and one Dockerfile, but it has separate runtime entrypoints:
 
 - API: `bun run start:api`, backed by `src/index.ts`.
-- Worker: `bun run start:worker`, backed by `src/worker.ts`. It is intentionally empty until a real long-running background handler is added, and deployment generation refuses to deploy this placeholder command as an App Platform worker.
-- Cron: `bun run start:cron -- <task>`, backed by `src/cron.ts`. Current local validation tasks are `noop` and `db:ping`.
+- Worker: `bun run start:worker`, backed by `src/worker.ts`. It loops forever: availability checks every `HEALTH_CHECK_INTERVAL_SECONDS`, GitHub sync every `GITHUB_SYNC_INTERVAL_SECONDS`, history pruning daily, and the Telegram digest once a day at `DAILY_DIGEST_HOUR_UTC`. Run exactly one instance.
+- Cron: `bun run start:cron -- <task>`, backed by `src/cron.ts`. Tasks: `health:check`, `health:prune`, `github:sync`, `digest:daily`, plus `noop` and `db:ping` for infrastructure smoke tests.
+- Seed: `bun run seed` inserts the owner's GitHub projects (names, repository links, guessed statuses) once; existing slugs are left untouched.
 
-All entrypoints use `src/runtime.ts` for env loading, Prisma creation, and cleanup, so backend services can be shared without duplicating Prisma schema or database setup.
+All entrypoints use `src/runtime.ts` for env loading and Prisma creation, and `src/services.ts` to build the shared feature services.
 
-Primary keys use database-generated UUIDv7 values in PostgreSQL (`@default(dbgenerated("uuidv7()")) @db.Uuid`). Use UUIDv7 consistently for new primary keys and foreign-key references that point at them; do not introduce new `cuid()`, `uuid()`, `serial`, or `bigserial` IDs into this template. PostgreSQL 18+ is required anywhere the backend schema is applied so IDs are generated consistently through Prisma, raw SQL, imports, and future non-Prisma writers.
+Primary keys use database-generated UUIDv7 values in PostgreSQL (`@default(dbgenerated("uuidv7()")) @db.Uuid`). PostgreSQL 18+ is required anywhere the schema is applied.
 
 ## Deployment
 
 Production deployment for the backend uses DigitalOcean App Platform with DigitalOcean Managed PostgreSQL by default. Follow the shared runbook in [../docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md) instead of duplicating provider-specific steps here. The root `bun run deploy:do:specs` command generates concrete App Platform specs safely under `.scratch/deploy`; do not hand-substitute secrets or URLs into specs. If the user explicitly chooses Yandex Cloud, use [../docs/YANDEX_CLOUD.md](../docs/YANDEX_CLOUD.md).
 
-## Auth API
+## API
 
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-- `POST /api/auth/refresh`
+Public:
+
+- `POST /api/auth/register` (first account, then only `ADMIN_EMAILS`), `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`, `GET /api/auth/status`
+- `GET /health`, `GET /openapi.json`
+
+Bearer-protected (`Authorization: Bearer <access token>`):
+
 - `GET /api/auth/me`
-- `POST /api/auth/logout`
-- `GET /openapi.json`
-- `GET /health`
+- `GET /api/dashboard`
+- `GET|POST /api/projects`, `GET|PATCH|DELETE /api/projects/:id`, `POST /api/projects/:id/check`
+- `GET|POST /api/servers`, `GET|PATCH|DELETE /api/servers/:id`, `POST /api/servers/:id/payments`, `DELETE /api/servers/:id/payments/:paymentId`
+- `GET|POST /api/clients`, `GET|PATCH|DELETE /api/clients/:id`
+- `GET|POST /api/invoices` (`?status=&clientId=&projectId=`), `GET|PATCH|DELETE /api/invoices/:id`
+- `POST /api/health/run` (check every monitored project now)
 
-Passwords are hashed through `Bun.password` with Argon2id. Access tokens are short-lived JWTs through `jose`. Refresh tokens are opaque random tokens; only a SHA-256 hash is stored in the database. Refresh rotates the token and revokes the previous session.
+Passwords are hashed through `Bun.password` with Argon2id. Access tokens are short-lived JWTs through `jose`. Refresh tokens are opaque random tokens; only a SHA-256 hash is stored. Refresh rotates the token and revokes the previous session.
 
 ## Architecture
 
-`src/index.ts` only starts the API server. `src/runtime.ts` loads env and creates the Prisma client for API, worker, and cron entrypoints. The Hono app is created in `src/app.ts`. The auth feature lives in `src/auth`: routes validate and delegate, the service owns session/user logic, and token helpers isolate JWT and refresh-token mechanics. `src/db.ts` normalizes DigitalOcean Managed PostgreSQL URLs that use `sslmode=require` so the Prisma PostgreSQL adapter uses libpq-compatible TLS handling.
+`src/index.ts` only starts the API server. `src/runtime.ts` loads env and creates the Prisma client for API, worker, and cron entrypoints. The Hono app is created in `src/app.ts` and mounts one router per feature (`auth`, `projects`, `servers`, `clients`, `invoices`, `dashboard`, `health`); routes validate and delegate, services own the logic, DTO mapping lives next to each service. `src/db.ts` normalizes DigitalOcean Managed PostgreSQL URLs that use `sslmode=require` so the Prisma PostgreSQL adapter uses libpq-compatible TLS handling. See [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) for the module map.
 
 The storage service lives in `src/storage` and wraps DigitalOcean Spaces through S3-compatible SDK calls. Product-specific upload routes should validate ownership and permissions, then delegate object key generation, presigned upload/download URLs, public CDN URL construction, and deletion to that service.
 

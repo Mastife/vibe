@@ -62,8 +62,10 @@ export default async function globalSetup() {
 
   if (process.env.E2E_SKIP_DOCKER !== '1') {
     run('docker', [...composeArgs, 'up', '-d', 'postgres_test'], env)
-    await waitForComposePostgres('postgres_test', 'web_app_demo_test', env)
+    await waitForComposePostgres('postgres_test', 'projects_hq_test', env)
   }
 
   run('bun', ['run', '--cwd', 'backend', 'prisma:deploy'], env)
+  // The journey starts from an empty panel (first-run registration), so application tables are emptied every run.
+  run('bun', ['run', '--cwd', 'backend', 'db:reset:test'], env)
 }

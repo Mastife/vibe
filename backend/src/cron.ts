@@ -1,4 +1,7 @@
+import { syncGithubRepos } from './github/sync'
+import { DailyDigest } from './notifications/digest'
 import { createBackendRuntime, type BackendRuntime } from './runtime'
+import { createServices } from './services'
 
 type CronTask = (runtime: BackendRuntime) => Promise<void>
 
@@ -9,6 +12,29 @@ const cronTasks = {
   'db:ping': async ({ prisma }) => {
     await prisma.$queryRaw`SELECT 1`
     console.log('Cron db:ping task completed.')
+  },
+  'health:check': async (runtime) => {
+    const result = await createServices(runtime).healthService.checkAll()
+    console.log(`Cron health:check: ${result.checked} checked, ${result.up} up, ${result.down} down.`)
+  },
+  'health:prune': async (runtime) => {
+    const removed = await createServices(runtime).healthService.pruneHistory()
+    console.log(`Cron health:prune: removed ${removed} old health runs.`)
+  },
+  'github:sync': async (runtime) => {
+    const result = await syncGithubRepos(runtime.prisma, runtime.env)
+    console.log(`Cron github:sync: ${result.synced} synced, ${result.skipped} skipped, ${result.failed} failed.`)
+  },
+  'digest:daily': async (runtime) => {
+    const services = createServices(runtime)
+    const digest = new DailyDigest(
+      runtime.env.DAILY_DIGEST_HOUR_UTC,
+      services.dashboardService,
+      services.notifier,
+      runtime.env.APP_URL,
+    )
+    const sent = await digest.send()
+    console.log(sent ? 'Cron digest:daily: digest sent.' : 'Cron digest:daily: nothing to send or Telegram is not configured.')
   },
 } satisfies Record<string, CronTask>
 

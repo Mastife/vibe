@@ -1,5 +1,5 @@
 {
-  "name": "@web-app-demo/backend",
+  "name": "@projects-hq/backend",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -13,7 +13,7 @@
     "build": "bun run prisma:generate && tsc --noEmit",
     "typecheck": "bun run prisma:generate && tsc --noEmit",
     "test": "bun run test:unit && bun run test:integration",
-    "test:unit": "bun test src/env.test.ts src/db.test.ts src/contracts.test.ts src/cron.test.ts src/auth/access-tokens.test.ts src/auth/passwords.test.ts src/auth/refresh-tokens.test.ts src/auth/routes.test.ts src/storage/service.test.ts",
+    "test:unit": "bun test src/env.test.ts src/db.test.ts src/contracts.test.ts src/cron.test.ts src/worker.test.ts src/lib src/auth/access-tokens.test.ts src/auth/passwords.test.ts src/auth/refresh-tokens.test.ts src/auth/routes.test.ts src/storage/service.test.ts src/health/checker.test.ts src/notifications src/github src/dashboard/alerts.test.ts",
     "test:integration": "bun scripts/test-integration.mjs",
     "smoke:docker": "bun scripts/docker-smoke.mjs",
     "prisma": "prisma",
@@ -21,7 +21,10 @@
     "prisma:generate:raw": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
-    "prisma:validate": "prisma validate"
+    "prisma:validate": "prisma validate",
+    "dev:worker": "bun run prisma:generate && bun --watch src/worker.ts",
+    "seed": "bun run prisma:generate && bun scripts/seed.ts",
+    "db:reset:test": "bun scripts/reset-test-db.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1048.0",
@@ -30,7 +33,7 @@
     "@hono/zod-validator": "^0.8.0",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
-    "@web-app-demo/contracts": "workspace:*",
+    "@projects-hq/contracts": "workspace:*",
     "dotenv": "^17.4.2",
     "hono": "^4.12.19",
     "jose": "^6.2.3",

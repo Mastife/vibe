@@ -8,7 +8,7 @@ import { validateDigitalOceanCronSchedule } from './do-cron.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const scratchDir = resolve(repoRoot, '.scratch/deploy')
-const targets = new Set(['backend-initial', 'backend-final', 'web', 'landing', 'all'])
+const targets = new Set(['backend-initial', 'backend-final', 'web', 'all'])
 const target = process.argv[2]
 const knownWeakJwtSecrets = new Set(['replace-with-at-least-32-random-characters'])
 const appPlatformInstanceSizeSlugs = new Set([
@@ -29,7 +29,7 @@ const appPlatformInstanceSizeSlugs = new Set([
 ])
 
 // Budget-bearing DigitalOcean defaults live here so generated specs, tests, and docs have one owner.
-// Web and landing use Static Site templates on purpose, so they do not get runtime machine sizing.
+// Web uses the Static Site template on purpose, so it does not get runtime machine sizing.
 const defaultApiServiceInstanceSizeSlug = 'apps-s-1vcpu-1gb'
 const defaultApiServiceInstanceCount = 1
 const defaultBackendWorkerInstanceSizeSlug = defaultApiServiceInstanceSizeSlug
@@ -83,14 +83,6 @@ if (target === 'web' || target === 'all') {
   })
 }
 
-if (target === 'landing' || target === 'all') {
-  // Landing is also a Static Site component until a product requirement needs a runtime process.
-  await writePreparedSpec('landing-static-app.yaml.example', 'landing-static-app.yaml', {
-    ...commonReplacements(),
-    'https://REPLACE_WITH_WEB_DEFAULT_INGRESS': requiredUrlEnv('DO_WEB_URL'),
-  })
-}
-
 console.log(`Prepared DigitalOcean specs under ${scratchDir}`)
 
 function commonReplacements() {
@@ -131,7 +123,6 @@ function printUsage() {
   console.error('  backend-initial: JWT_SECRET')
   console.error('  backend-final: JWT_SECRET, DO_WEB_URL')
   console.error('  web: DO_BACKEND_URL')
-  console.error('  landing: DO_WEB_URL')
   console.error('  all: JWT_SECRET, DO_BACKEND_URL, DO_WEB_URL')
   console.error('')
   console.error('Optional deployment settings:')
@@ -372,7 +363,10 @@ function optionalBackendWorkersBlock() {
   }
 
   const workerName = doName(process.env.DO_BACKEND_WORKER_NAME ?? 'worker', 32)
-  const runCommand = requiredWorkerRunCommand('DO_BACKEND_WORKER_RUN_COMMAND')
+  // The monitoring scheduler lives in `bun run start:worker`; allow overriding for custom entrypoints.
+  const runCommand = process.env.DO_BACKEND_WORKER_RUN_COMMAND?.trim()
+    ? requiredWorkerRunCommand('DO_BACKEND_WORKER_RUN_COMMAND')
+    : 'bun run start:worker'
   const instanceSizeSlug = optionalAppPlatformInstanceSizeSlugEnv(
     'DO_BACKEND_WORKER_INSTANCE_SIZE_SLUG',
     defaultBackendWorkerInstanceSizeSlug,
@@ -408,13 +402,6 @@ workers:
 function requiredWorkerRunCommand(name) {
   const value = requiredEnv(name)
   assertSafeYamlString(name, value)
-
-  if (value === 'bun run start:worker') {
-    throw new Error(
-      `${name} must point at a real long-running worker command. The template placeholder 'bun run start:worker' exits immediately and must not be deployed as an App Platform worker.`,
-    )
-  }
-
   return value
 }
 

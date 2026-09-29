@@ -10,7 +10,6 @@ coverage/
 playwright-report/
 test-results/
 web/e2e/.artifacts/
-mobile/.maestro/reports/
 
 # Runtime and logs
 *.log
@@ -34,3 +33,6 @@ backend/.prisma-generate.lock
 .vscode/
 *.swp
 *.swo
+
+# Production env for the VPS compose stack
+deploy/.env.production

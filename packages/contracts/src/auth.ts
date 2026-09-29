@@ -12,8 +12,8 @@ export const emailSchema = z.string().trim().toLowerCase().email().max(254)
 
 export const passwordSchema = z
   .string()
-  .min(8, 'Password must be at least 8 characters')
-  .max(128, 'Password must be at most 128 characters')
+  .min(8, 'Пароль должен быть не короче 8 символов')
+  .max(128, 'Пароль должен быть не длиннее 128 символов')
 
 export const userSchema = z.object({
   id: z.string(),
@@ -71,3 +71,11 @@ export type LogoutRequest = z.infer<typeof logoutRequestSchema>
 export type AuthResponse = z.infer<typeof authResponseSchema>
 export type RefreshResponse = z.infer<typeof refreshResponseSchema>
 export type MeResponse = z.infer<typeof meResponseSchema>
+
+export const authStatusResponseSchema = z.object({
+  registrationOpen: z.boolean(),
+  /** True until the first admin account exists. */
+  firstRun: z.boolean(),
+})
+
+export type AuthStatusResponse = z.infer<typeof authStatusResponseSchema>

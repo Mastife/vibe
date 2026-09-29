@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import type { LoginRequest, RegisterRequest } from '@web-app-demo/contracts'
+import type { LoginRequest, RegisterRequest } from '@projects-hq/contracts'
 import {
   type PropsWithChildren,
   useCallback,
@@ -91,11 +91,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const logout = useCallback(async () => {
     await api.logout().catch(() => undefined)
     setAccessToken(null)
-    queryClient.removeQueries({ queryKey: meQueryKey })
+    // Nothing cached belongs to the next session.
+    queryClient.clear()
   }, [api, queryClient, setAccessToken])
 
   const value = useMemo<AuthContextValue>(
     () => ({
+      api,
       user: meQuery.data?.user ?? null,
       isBootstrapping,
       isAuthenticated: Boolean(meQuery.data?.user),
@@ -103,7 +105,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       login,
       logout,
     }),
-    [isBootstrapping, login, logout, meQuery.data?.user, register],
+    [api, isBootstrapping, login, logout, meQuery.data?.user, register],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

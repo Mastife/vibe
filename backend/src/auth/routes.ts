@@ -1,22 +1,24 @@
 import {
   apiErrorSchema,
   authResponseSchema,
+  authStatusResponseSchema,
   loginRequestSchema,
   logoutRequestSchema,
   meResponseSchema,
   refreshRequestSchema,
   refreshResponseSchema,
   registerRequestSchema,
-} from '@web-app-demo/contracts'
+} from '@projects-hq/contracts'
 import { createRoute, OpenAPIHono } from '@hono/zod-openapi'
 import type { Context } from 'hono'
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 
 import type { AppEnv } from '../env'
 import { AppError, validationErrorHook } from '../http/errors'
+import { bearerToken } from './guard'
 import type { AuthService } from './service'
 
-const refreshCookieName = 'web_app_demo_refresh'
+const refreshCookieName = 'projects_hq_refresh'
 
 type AuthRouteEnv = {
   Variables: {
@@ -69,6 +71,10 @@ const registerRoute = createRoute({
     400: {
       content: errorResponseContent,
       description: 'Invalid payload',
+    },
+    403: {
+      content: errorResponseContent,
+      description: 'Registration is closed',
     },
     409: {
       content: errorResponseContent,
@@ -133,6 +139,21 @@ const refreshRoute = createRoute({
     403: {
       content: errorResponseContent,
       description: 'Cookie auth request came from an untrusted browser origin',
+    },
+  },
+})
+
+const statusRoute = createRoute({
+  method: 'get',
+  path: '/status',
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: authStatusResponseSchema,
+        },
+      },
+      description: 'Whether a new admin account can still be registered',
     },
   },
 })
@@ -214,6 +235,10 @@ export function createAuthRoutes() {
     return c.json(responseForClient(c, result), 200)
   })
 
+  routes.openapi(statusRoute, async (c) => {
+    return c.json(await c.get('authService').registrationStatus(), 200)
+  })
+
   routes.openapi(meRoute, async (c) => {
     const auth = c.get('authService')
     return c.json(await auth.getMe(bearerToken(c)), 200)
@@ -246,12 +271,6 @@ function requestMetadata(c: Context): { userAgent?: string; ipAddress?: string }
   }
 }
 
-function bearerToken(c: Context) {
-  const authorization = c.req.header('authorization')
-  if (!authorization?.startsWith('Bearer ')) return undefined
-  return authorization.slice('Bearer '.length)
-}
-
 function getRefreshCookie(c: Context) {
   return getCookie(c, refreshCookieName)
 }
@@ -271,7 +290,7 @@ function assertTrustedCookieRequest(
     return
   }
 
-  throw new AppError(403, 'FORBIDDEN', 'Cookie auth requests require a trusted Origin')
+  throw new AppError(403, 'FORBIDDEN', 'Запросы с cookie требуют доверенный Origin')
 }
 
 function setRefreshCookie(c: Context, refreshToken: string, env: AppEnv) {
