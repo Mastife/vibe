@@ -3,11 +3,14 @@ import { ClientsService } from './clients/service'
 import { AnalyticsService } from './dashboard/analytics'
 import { DashboardService } from './dashboard/service'
 import type { DbClient } from './db'
+import { DomainsService } from './domains/service'
 import type { AppEnv } from './env'
 import { checkUrl } from './health/checker'
 import { HealthService } from './health/service'
+import { BillingService } from './invoices/billing'
 import { InvoicesService } from './invoices/service'
 import type { FetchLike } from './lib/fetch'
+import { RemindersService } from './notifications/reminders'
 import { createNotifierFromEnv, type Notifier } from './notifications/telegram'
 import { ProjectsService } from './projects/service'
 import { ServersService } from './servers/service'
@@ -23,6 +26,9 @@ export type Services = {
   healthService: HealthService
   dashboardService: DashboardService
   analyticsService: AnalyticsService
+  domainsService: DomainsService
+  billingService: BillingService
+  remindersService: RemindersService
   notifier: Notifier | null
 }
 
@@ -43,8 +49,11 @@ export function createServices({ env, prisma }: { env: AppEnv; prisma: DbClient 
   const clientsService = new ClientsService(prisma)
   const invoicesService = new InvoicesService(prisma)
   const healthService = new HealthService(prisma, env, notifier, options.check ?? checkUrl)
-  const dashboardService = new DashboardService(prisma, projectsService, serversService, invoicesService)
+  const domainsService = new DomainsService(prisma, options.fetchImpl ?? fetch)
+  const dashboardService = new DashboardService(prisma, projectsService, serversService, invoicesService, domainsService)
   const analyticsService = new AnalyticsService(prisma, projectsService, serversService, invoicesService)
+  const billingService = new BillingService(prisma, env, notifier)
+  const remindersService = new RemindersService(prisma, serversService, domainsService, invoicesService, notifier, env.APP_URL)
 
   return {
     authService,
@@ -56,6 +65,9 @@ export function createServices({ env, prisma }: { env: AppEnv; prisma: DbClient 
     healthService,
     dashboardService,
     analyticsService,
+    domainsService,
+    billingService,
+    remindersService,
     notifier,
   }
 }

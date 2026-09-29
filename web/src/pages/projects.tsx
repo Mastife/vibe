@@ -30,7 +30,7 @@ export function ProjectsPage() {
   const servers = useServers()
   const checkProject = useCheckProject()
   const deleteProject = useDeleteProject()
-  const [filter, setFilter] = useState<StatusFilter>('ALL')
+  const [filter, setFilter] = useState<StatusFilter>('ACTIVE')
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<ProjectDto | undefined>(undefined)
   const [deleting, setDeleting] = useState<ProjectDto | null>(null)

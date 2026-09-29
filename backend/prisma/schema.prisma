@@ -21,7 +21,7 @@ model User {
 
 model AuthSession {
   id               String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  userId           String    @db.Uuid @map("user_id")
+  userId           String    @map("user_id") @db.Uuid
   refreshTokenHash String    @unique(map: "auth_sessions_refresh_token_hash_key") @map("refresh_token_hash")
   expiresAt        DateTime  @map("expires_at")
   revokedAt        DateTime? @map("revoked_at")
@@ -138,6 +138,9 @@ model Project {
   currency         String           @default("KZT")
   tags             String[]         @default([])
   notes            String?
+  /// Issue a monthly subscription invoice to the client on `billingDay` (1-28).
+  autoInvoice      Boolean          @default(false) @map("auto_invoice")
+  billingDay       Int              @default(1) @map("billing_day")
   lastHealthStatus HealthStatus     @default(UNKNOWN) @map("last_health_status")
   lastCheckedAt    DateTime?        @map("last_checked_at")
   lastLatencyMs    Int?             @map("last_latency_ms")
@@ -153,6 +156,7 @@ model Project {
   server           Server?          @relation(fields: [serverId], references: [id], onDelete: SetNull)
   healthRuns       HealthCheckRun[]
   invoices         Invoice[]
+  domains          Domain[]
 
   @@index([clientId])
   @@index([serverId])
@@ -177,24 +181,60 @@ model HealthCheckRun {
 }
 
 model Invoice {
-  id        String        @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  clientId  String        @map("client_id") @db.Uuid
-  projectId String?       @map("project_id") @db.Uuid
-  title     String
-  amount    Decimal       @db.Decimal(14, 2)
-  currency  String        @default("KZT")
-  status    InvoiceStatus @default(SENT)
-  issuedAt  DateTime      @map("issued_at") @db.Date
-  dueAt     DateTime?     @map("due_at") @db.Date
-  paidAt    DateTime?     @map("paid_at") @db.Date
-  note      String?
-  createdAt DateTime      @default(now()) @map("created_at")
-  updatedAt DateTime      @updatedAt @map("updated_at")
-  client    Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  project   Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  id         String        @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  clientId   String        @map("client_id") @db.Uuid
+  projectId  String?       @map("project_id") @db.Uuid
+  title      String
+  amount     Decimal       @db.Decimal(14, 2)
+  currency   String        @default("KZT")
+  status     InvoiceStatus @default(SENT)
+  issuedAt   DateTime      @map("issued_at") @db.Date
+  dueAt      DateTime?     @map("due_at") @db.Date
+  paidAt     DateTime?     @map("paid_at") @db.Date
+  note       String?
+  /// `YYYY-MM` of an automatically issued subscription invoice; one per project and month.
+  autoPeriod String?       @map("auto_period")
+  createdAt  DateTime      @default(now()) @map("created_at")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+  client     Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  project    Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
+  @@unique([projectId, autoPeriod])
   @@index([clientId])
   @@index([projectId])
   @@index([status, dueAt])
   @@map("invoices")
+}
+
+model Domain {
+  id             String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  name           String    @unique
+  registrar      String?
+  projectId      String?   @map("project_id") @db.Uuid
+  expiresAt      DateTime? @map("expires_at") @db.Date
+  renewalCost    Decimal   @default(0) @map("renewal_cost") @db.Decimal(14, 2)
+  currency       String    @default("KZT")
+  notes          String?
+  /// Last successful RDAP lookup of the expiry date.
+  expirySyncedAt DateTime? @map("expiry_synced_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  project        Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([expiresAt])
+  @@map("domains")
+}
+
+/// One row per Telegram payment reminder already sent, so each threshold fires once per due date.
+model ReminderLog {
+  id        String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  kind      String
+  entityId  String   @map("entity_id") @db.Uuid
+  dueAt     DateTime @map("due_at") @db.Date
+  threshold Int
+  sentAt    DateTime @default(now()) @map("sent_at")
+
+  @@unique([kind, entityId, dueAt, threshold])
+  @@map("reminder_log")
 }

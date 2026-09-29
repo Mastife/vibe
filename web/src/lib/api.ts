@@ -6,6 +6,9 @@ import {
   clientResponseSchema,
   analyticsResponseSchema,
   dashboardResponseSchema,
+  domainListResponseSchema,
+  domainResponseSchema,
+  domainSyncResponseSchema,
   healthCheckResponseSchema,
   healthRunAllResponseSchema,
   invoiceListResponseSchema,
@@ -30,6 +33,11 @@ import {
   type ClientUpdatePayload,
   type AnalyticsResponse,
   type DashboardResponse,
+  type DomainCreatePayload,
+  type DomainListResponse,
+  type DomainResponse,
+  type DomainSyncResponse,
+  type DomainUpdatePayload,
   type HealthCheckResponse,
   type HealthRunAllResponse,
   type InvoiceCreatePayload,
@@ -191,6 +199,28 @@ export class ApiClient {
 
   checkProject(id: string): Promise<HealthCheckResponse> {
     return this.request(`/api/projects/${id}/check`, healthCheckResponseSchema, { method: 'POST', auth: true })
+  }
+
+  // Domains
+
+  listDomains(): Promise<DomainListResponse> {
+    return this.request('/api/domains', domainListResponseSchema, { auth: true })
+  }
+
+  createDomain(payload: DomainCreatePayload): Promise<DomainResponse> {
+    return this.request('/api/domains', domainResponseSchema, { method: 'POST', body: payload, auth: true })
+  }
+
+  updateDomain(id: string, payload: DomainUpdatePayload): Promise<DomainResponse> {
+    return this.request(`/api/domains/${id}`, domainResponseSchema, { method: 'PATCH', body: payload, auth: true })
+  }
+
+  async deleteDomain(id: string) {
+    await this.rawRequest(`/api/domains/${id}`, { method: 'DELETE', auth: true })
+  }
+
+  syncDomains(): Promise<DomainSyncResponse> {
+    return this.request('/api/domains/sync', domainSyncResponseSchema, { method: 'POST', auth: true })
   }
 
   // Servers

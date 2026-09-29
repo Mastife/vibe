@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type {
   ClientCreatePayload,
   ClientUpdatePayload,
+  DomainCreatePayload,
+  DomainUpdatePayload,
   InvoiceCreatePayload,
   InvoiceListQuery,
   InvoiceUpdatePayload,
@@ -21,6 +23,7 @@ export const queryKeys = {
   projects: ['projects'] as const,
   project: (id: string) => ['projects', id] as const,
   servers: ['servers'] as const,
+  domains: ['domains'] as const,
   server: (id: string) => ['servers', id] as const,
   clients: ['clients'] as const,
   invoices: (query: InvoiceListQuery = {}) => ['invoices', query] as const,
@@ -68,6 +71,38 @@ export function useProject(id: string) {
 export function useServers() {
   const { api } = useAuth()
   return useQuery({ queryKey: queryKeys.servers, queryFn: () => api.listServers() })
+}
+
+export function useDomains() {
+  const { api } = useAuth()
+  return useQuery({ queryKey: queryKeys.domains, queryFn: () => api.listDomains() })
+}
+
+export function useCreateDomain() {
+  const { api } = useAuth()
+  const invalidate = useInvalidateAll()
+  return useMutation({ mutationFn: (payload: DomainCreatePayload) => api.createDomain(payload), onSuccess: invalidate })
+}
+
+export function useUpdateDomain() {
+  const { api } = useAuth()
+  const invalidate = useInvalidateAll()
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: DomainUpdatePayload }) => api.updateDomain(id, payload),
+    onSuccess: invalidate,
+  })
+}
+
+export function useDeleteDomain() {
+  const { api } = useAuth()
+  const invalidate = useInvalidateAll()
+  return useMutation({ mutationFn: (id: string) => api.deleteDomain(id), onSuccess: invalidate })
+}
+
+export function useSyncDomains() {
+  const { api } = useAuth()
+  const invalidate = useInvalidateAll()
+  return useMutation({ mutationFn: () => api.syncDomains(), onSuccess: invalidate })
 }
 
 export function useServer(id: string) {

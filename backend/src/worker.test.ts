@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { scheduleLoop } from './worker'
+import { isNotifyWindow, scheduleLoop } from './worker'
 
 describe('scheduleLoop', () => {
   test('runs immediately, repeats on the interval, and survives failures until aborted', async () => {
@@ -32,5 +32,15 @@ describe('scheduleLoop', () => {
     let runs = 0
     await scheduleLoop({ name: 'test', intervalMs: 5, runImmediately: true, run: async () => void runs++ }, controller.signal)
     expect(runs).toBe(0)
+  })
+})
+
+describe('isNotifyWindow', () => {
+  test('allows the 12 hours starting at the digest hour, wrapping past midnight UTC', () => {
+    expect(isNotifyWindow(new Date('2026-09-29T04:00:00Z'), 4)).toBe(true)
+    expect(isNotifyWindow(new Date('2026-09-29T15:59:00Z'), 4)).toBe(true)
+    expect(isNotifyWindow(new Date('2026-09-29T16:00:00Z'), 4)).toBe(false)
+    expect(isNotifyWindow(new Date('2026-09-29T03:00:00Z'), 4)).toBe(false)
+    expect(isNotifyWindow(new Date('2026-09-29T02:00:00Z'), 20)).toBe(true)
   })
 })

@@ -5,6 +5,7 @@ import { secureHeaders } from 'hono/secure-headers'
 import { createAuthRoutes } from './auth/routes'
 import { createClientRoutes } from './clients/routes'
 import { createDashboardRoutes } from './dashboard/routes'
+import { createDomainRoutes } from './domains/routes'
 import type { DbClient } from './db'
 import type { AppEnv } from './env'
 import { createHealthRoutes } from './health/routes'
@@ -51,6 +52,7 @@ export function createApp({ env, prisma, services = createServices({ env, prisma
     c.set('healthService', services.healthService)
     c.set('dashboardService', services.dashboardService)
     c.set('analyticsService', services.analyticsService)
+    c.set('domainsService', services.domainsService)
     await next()
   })
 
@@ -72,6 +74,7 @@ export function createApp({ env, prisma, services = createServices({ env, prisma
   app.route('/api/servers', createServerRoutes())
   app.route('/api/clients', createClientRoutes())
   app.route('/api/invoices', createInvoiceRoutes())
+  app.route('/api/domains', createDomainRoutes())
   app.route('/api/dashboard', createDashboardRoutes())
   app.route('/api/health', createHealthRoutes())
 

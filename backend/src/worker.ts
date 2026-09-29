@@ -11,8 +11,14 @@ export type ScheduledTask = {
 }
 
 const dayMs = 24 * 60 * 60 * 1000
+const hourMs = 60 * 60 * 1000
 
-/** The background schedule: availability probes, GitHub activity, history pruning, and the daily digest. */
+/** Telegram-facing jobs only run in the 12 hours after the digest hour, so nothing pings at night. */
+export function isNotifyWindow(now: Date, digestHourUtc: number): boolean {
+  return (now.getUTCHours() - digestHourUtc + 24) % 24 < 12
+}
+
+/** The background schedule: availability probes, GitHub activity, history pruning, the daily digest, billing, and payment reminders. */
 export function workerTasks(runtime: BackendRuntime, services: Services): ScheduledTask[] {
   const env = runtime.env
   const digest = new DailyDigest(env.DAILY_DIGEST_HOUR_UTC, services.dashboardService, services.notifier, env.APP_URL)
@@ -40,6 +46,24 @@ export function workerTasks(runtime: BackendRuntime, services: Services): Schedu
       name: 'digest:daily',
       intervalMs: 60 * 1000,
       run: () => digest.runIfDue(),
+    },
+    {
+      name: 'domains:sync',
+      intervalMs: dayMs,
+      run: () => services.domainsService.syncExpiry(),
+      runImmediately: true,
+    },
+    {
+      name: 'billing:auto',
+      intervalMs: hourMs,
+      run: async () => (isNotifyWindow(new Date(), env.DAILY_DIGEST_HOUR_UTC) ? services.billingService.issueDue() : false),
+      runImmediately: true,
+    },
+    {
+      name: 'reminders:send',
+      intervalMs: hourMs,
+      run: async () => (isNotifyWindow(new Date(), env.DAILY_DIGEST_HOUR_UTC) ? services.remindersService.sendDue() : false),
+      runImmediately: true,
     },
   ]
 }

@@ -4,6 +4,7 @@ import { RootLayout } from '@/components/root-layout'
 import { AnalyticsPage } from '@/pages/analytics'
 import { ClientsPage } from '@/pages/clients'
 import { DashboardPage } from '@/pages/dashboard'
+import { DomainsPage } from '@/pages/domains'
 import { InvoicesPage } from '@/pages/invoices'
 import { ProjectDetailPage } from '@/pages/project-detail'
 import { ProjectsPage } from '@/pages/projects'
@@ -50,6 +51,12 @@ const serverDetailRoute = createRoute({
   component: ServerDetailPage,
 })
 
+const domainsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/domains',
+  component: DomainsPage,
+})
+
 const clientsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/clients',
@@ -69,6 +76,7 @@ const routeTree = rootRoute.addChildren([
   projectDetailRoute,
   serversRoute,
   serverDetailRoute,
+  domainsRoute,
   clientsRoute,
   invoicesRoute,
 ])

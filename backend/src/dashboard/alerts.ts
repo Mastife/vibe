@@ -1,4 +1,4 @@
-import type { AlertDto, AlertSeverity, InvoiceDto, ProjectDto, ServerDto } from '@projects-hq/contracts'
+import type { AlertDto, AlertSeverity, DomainDto, InvoiceDto, ProjectDto, ServerDto } from '@projects-hq/contracts'
 
 import { daysBetween, parseDateOnly, toDateOnly, todayUtc } from '../lib/dates'
 import { formatDays, formatMoney, plural } from '../lib/text'
@@ -7,6 +7,7 @@ export type AlertInput = {
   projects: ProjectDto[]
   servers: ServerDto[]
   openInvoices: InvoiceDto[]
+  domains?: DomainDto[]
   now: Date
 }
 
@@ -15,12 +16,14 @@ export const alertThresholds = {
   invoiceDueSoonDays: 3,
   sslExpiringDays: 14,
   sslCriticalDays: 3,
+  domainExpiringDays: 30,
+  domainCriticalDays: 7,
 }
 
 const severityRank: Record<AlertSeverity, number> = { critical: 0, warning: 1, info: 2 }
 
 /** Pure derivation of everything that needs the owner's attention today. */
-export function buildAlerts({ projects, servers, openInvoices, now }: AlertInput): AlertDto[] {
+export function buildAlerts({ projects, servers, openInvoices, domains = [], now }: AlertInput): AlertDto[] {
   const today = todayUtc(now)
   const alerts: AlertDto[] = []
   const liveProjects = projects.filter((project) => project.status !== 'ARCHIVED')
@@ -142,6 +145,28 @@ export function buildAlerts({ projects, servers, openInvoices, now }: AlertInput
         dueAt: invoice.dueAt,
       })
     }
+  }
+
+  for (const domain of domains) {
+    if (!domain.expiresAt) continue
+    const days = daysBetween(today, parseDateOnly(domain.expiresAt))
+    if (days > alertThresholds.domainExpiringDays) continue
+    const cost = domain.renewalCost > 0 ? ` Продление: ${formatMoney(domain.renewalCost, domain.currency)}` : ''
+    alerts.push({
+      id: `domain-${domain.id}`,
+      severity: days <= alertThresholds.domainCriticalDays ? 'critical' : 'warning',
+      kind: days < 0 ? 'DOMAIN_EXPIRED' : 'DOMAIN_EXPIRING',
+      title:
+        days < 0
+          ? `Домен ${domain.name} истёк ${formatDays(-days)} назад`
+          : days === 0
+            ? `Домен ${domain.name} истекает сегодня`
+            : `Домен ${domain.name} истекает через ${formatDays(days)}`,
+      description: `Оплачен до ${domain.expiresAt}.${cost}`,
+      entityType: 'domain',
+      entityId: domain.id,
+      dueAt: domain.expiresAt,
+    })
   }
 
   return alerts.sort(compareAlerts)

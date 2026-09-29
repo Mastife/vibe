@@ -29,6 +29,8 @@ export const invoiceSchema = z.object({
   paidAt: isoDateSchema.nullable(),
   note: z.string().nullable(),
   isOverdue: z.boolean(),
+  /** `YYYY-MM` when the invoice was issued automatically for a project subscription. */
+  autoPeriod: z.string().nullable(),
   createdAt: isoDateTimeSchema,
   updatedAt: isoDateTimeSchema,
 })

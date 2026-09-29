@@ -37,6 +37,13 @@ function AlertLink({ alert }: { alert: AlertDto }) {
       </Button>
     )
   }
+  if (alert.entityType === 'domain') {
+    return (
+      <Button asChild variant="ghost" size="sm">
+        <Link to="/domains">{label}</Link>
+      </Button>
+    )
+  }
   if (alert.entityType === 'invoice') {
     return (
       <Button asChild variant="ghost" size="sm">

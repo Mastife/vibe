@@ -14,10 +14,12 @@ export const alertKindSchema = z.enum([
   'SERVER_PAYMENT_DUE',
   'INVOICE_OVERDUE',
   'INVOICE_DUE',
+  'DOMAIN_EXPIRED',
+  'DOMAIN_EXPIRING',
   'PROJECTS_UNMONITORED',
 ])
 
-export const alertEntityTypeSchema = z.enum(['project', 'server', 'invoice', 'projects'])
+export const alertEntityTypeSchema = z.enum(['project', 'server', 'invoice', 'domain', 'projects'])
 
 export const alertSchema = z.object({
   id: z.string(),
