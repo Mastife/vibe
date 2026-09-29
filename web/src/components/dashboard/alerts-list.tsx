@@ -77,8 +77,8 @@ export function AlertsList({ alerts }: { alerts: AlertDto[] }) {
             <Typography variant="srOnly">{severityLabels[alert.severity]}</Typography>
           </ItemMedia>
           <ItemContent>
-            <ItemTitle className="line-clamp-2">{alert.title}</ItemTitle>
-            <ItemDescription>{alert.description}</ItemDescription>
+            <ItemTitle className="line-clamp-none">{alert.title}</ItemTitle>
+            <ItemDescription className="line-clamp-none">{alert.description}</ItemDescription>
           </ItemContent>
           <ItemActions>
             <AlertLink alert={alert} />

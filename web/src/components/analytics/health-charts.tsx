@@ -119,20 +119,26 @@ export function UptimeHeatmap({ days, projects }: { days: string[]; projects: An
     <TooltipProvider delayDuration={100}>
       <div className="grid gap-4">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-xl table-fixed border-separate border-spacing-0.5">
+          <table className="w-full table-fixed border-separate border-spacing-0.5 sm:min-w-xl">
             <thead>
               <tr>
-                <th className="w-44" />
+                <th className="w-24 sm:w-44" />
                 {days.map((date, index) => (
                   <th key={date} scope="col" className="overflow-visible px-0 text-left">
                     {(index % 3 === 0 || index === days.length - 1) && (
-                      <Typography as="span" variant="caption" tone="muted" className="whitespace-nowrap">
+                      <Typography
+                        as="span"
+                        variant="caption"
+                        tone="muted"
+                        // Phones only have room for the first date; the rest appear from sm up.
+                        className={cn('whitespace-nowrap', index !== 0 && 'hidden sm:inline')}
+                      >
                         {formatDayShort(date)}
                       </Typography>
                     )}
                   </th>
                 ))}
-                <th scope="col" className="w-16 pl-3 text-right">
+                <th scope="col" className="w-12 pl-2 text-right sm:w-16 sm:pl-3">
                   <Typography as="span" variant="caption" tone="muted">
                     7 дней
                   </Typography>
@@ -143,7 +149,7 @@ export function UptimeHeatmap({ days, projects }: { days: string[]; projects: An
               {projects.map((project) => (
                 <tr key={project.id}>
                   <th scope="row" className="pr-2 text-left">
-                    <Typography asChild variant="bodySm" truncate className="min-w-0">
+                    <Typography asChild variant="bodySm" className="min-w-0 break-words">
                       <Link to="/projects/$projectId" params={{ projectId: project.id }} className="block hover:underline">
                         {project.name}
                       </Link>
@@ -169,7 +175,7 @@ export function UptimeHeatmap({ days, projects }: { days: string[]; projects: An
                       </td>
                     )
                   })}
-                  <td className="pl-3 text-right">
+                  <td className="pl-2 text-right sm:pl-3">
                     <Typography as="span" variant="bodySmMedium" className="tabular-nums">
                       {formatPercent(project.uptime7d)}
                     </Typography>
