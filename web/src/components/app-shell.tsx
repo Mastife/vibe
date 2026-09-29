@@ -14,7 +14,6 @@ import { Separator } from '@/components/ui/separator'
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -73,11 +72,6 @@ export function AppShell() {
             </SidebarGroupContent>
           </SidebarGroup>
         </SidebarContent>
-        <SidebarFooter>
-          <Typography variant="caption" tone="muted" truncate className="px-2 group-data-[collapsible=icon]:hidden">
-            {auth.user?.email}
-          </Typography>
-        </SidebarFooter>
       </Sidebar>
       <SidebarInset>
         <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
