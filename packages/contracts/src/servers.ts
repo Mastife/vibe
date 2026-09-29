@@ -69,7 +69,7 @@ const serverFieldsSchema = z.object({
 
 export const serverCreateSchema = serverFieldsSchema.extend({
   monthlyCost: moneySchema.default(0),
-  currency: currencySchema.default('RUB'),
+  currency: currencySchema.default('KZT'),
   billingPeriod: billingPeriodSchema.default('MONTHLY'),
   status: serverStatusSchema.default('ACTIVE'),
 })

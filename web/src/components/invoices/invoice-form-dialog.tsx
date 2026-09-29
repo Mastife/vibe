@@ -57,7 +57,6 @@ const isFieldName = fieldNameGuard<FieldName>(fieldNames)
 const textFields: Array<{ name: FieldName; label: string; placeholder?: string; type?: 'date'; inputMode?: 'decimal' }> = [
   { name: 'title', label: 'Назначение', placeholder: 'Поддержка за сентябрь' },
   { name: 'amount', label: 'Сумма', placeholder: '45000', inputMode: 'decimal' },
-  { name: 'currency', label: 'Валюта', placeholder: 'RUB' },
   { name: 'issuedAt', label: 'Выставлен', type: 'date' },
   { name: 'dueAt', label: 'Срок оплаты', type: 'date' },
   { name: 'paidAt', label: 'Оплачен', type: 'date' },
@@ -69,7 +68,7 @@ function toDraft(invoice: InvoiceDto | undefined, defaults: { clientId?: string;
     projectId: invoice?.projectId ?? defaults.projectId ?? '',
     title: invoice?.title ?? '',
     amount: invoice ? String(invoice.amount) : '',
-    currency: invoice?.currency ?? 'RUB',
+    currency: 'KZT',
     status: invoice?.status ?? 'SENT',
     issuedAt: invoice?.issuedAt ?? todayDateOnly(),
     dueAt: invoice?.dueAt ?? '',

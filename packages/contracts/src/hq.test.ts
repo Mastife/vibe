@@ -34,7 +34,7 @@ describe('project contracts', () => {
       productionUrl: 'https://moika.example.com',
       clientId: null,
       monthlyFee: 15000.5,
-      currency: 'RUB',
+      currency: 'KZT',
       tags: ['prod', 'vps'],
     })
   })
@@ -62,7 +62,7 @@ describe('server contracts', () => {
     expect(serverCreateSchema.parse({ name: 'vps-1' })).toMatchObject({
       name: 'vps-1',
       monthlyCost: 0,
-      currency: 'RUB',
+      currency: 'KZT',
       billingPeriod: 'MONTHLY',
       status: 'ACTIVE',
     })
@@ -90,7 +90,7 @@ describe('invoice and client contracts', () => {
     expect(invoiceCreateSchema.safeParse({ clientId, title: 'Support', amount: -1 }).success).toBe(false)
 
     const result = invoiceCreateSchema.parse({ clientId, title: 'Support', amount: '4500' })
-    expect(result).toMatchObject({ clientId, title: 'Support', amount: 4500, currency: 'RUB', status: 'SENT' })
+    expect(result).toMatchObject({ clientId, title: 'Support', amount: 4500, currency: 'KZT', status: 'SENT' })
   })
 
   test('client updates clear email with a blank value and reject invalid emails', () => {

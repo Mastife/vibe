@@ -66,7 +66,6 @@ const textFields: TextSpec[] = [
   { name: 'healthCheckUrl', label: 'Health-check URL', placeholder: 'https://api.example.com/health' },
   { name: 'repoUrl', label: 'Репозиторий', placeholder: 'https://github.com/owner/repo' },
   { name: 'monthlyFee', label: 'Ежемесячная плата клиента', placeholder: '15000', inputMode: 'decimal' },
-  { name: 'currency', label: 'Валюта', placeholder: 'RUB' },
   { name: 'tags', label: 'Теги', placeholder: 'prod, telegram-bot', description: 'Через запятую.' },
 ]
 
@@ -81,7 +80,7 @@ function toDraft(project: ProjectDto | undefined): ProjectDraft {
     healthCheckUrl: project?.healthCheckUrl ?? '',
     repoUrl: project?.repoUrl ?? '',
     monthlyFee: project?.monthlyFee === null || project?.monthlyFee === undefined ? '' : String(project.monthlyFee),
-    currency: project?.currency ?? 'RUB',
+    currency: 'KZT',
     tags: project?.tags.join(', ') ?? '',
     description: project?.description ?? '',
     notes: project?.notes ?? '',
