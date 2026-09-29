@@ -297,15 +297,18 @@ maybeDescribe('projects hq API integration', () => {
     expect(telegramMessages).toEqual([])
 
     targetState.healthy = false
+    // One failure is not an outage yet: no status change, no alert.
     const batch = await api('POST', '/api/health/run', undefined, token)
     expect(batch.body).toEqual({ checked: 1, up: 0, down: 1 })
-    expect(telegramMessages).toHaveLength(1)
-    expect(telegramMessages[0]).toContain('Gifty</b> недоступен')
-    expect(telegramMessages[0]).toContain('HTTP 503')
+    const firstFailure = await api('GET', `/api/projects/${projectId}`, undefined, token)
+    expect(firstFailure.body.project.health).toMatchObject({ status: 'UP', error: 'HTTP 503' })
+    expect(telegramMessages).toEqual([])
 
     const stillDown = await api('POST', `/api/projects/${projectId}/check`, undefined, token)
     expect(stillDown.body.project.health).toMatchObject({ status: 'DOWN', error: 'HTTP 503' })
     expect(telegramMessages).toHaveLength(1)
+    expect(telegramMessages[0]).toContain('Gifty</b> недоступен')
+    expect(telegramMessages[0]).toContain('HTTP 503')
 
     const dashboard = await api('GET', '/api/dashboard', undefined, token)
     expect(dashboard.body.projects).toMatchObject({ up: 0, down: 1, unknown: 1 })
