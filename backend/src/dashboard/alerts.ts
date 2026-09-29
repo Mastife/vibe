@@ -97,7 +97,7 @@ export function buildAlerts({ projects, servers, openInvoices, domains = [], now
     }
   }
 
-  const unmonitored = liveProjects.filter((project) => !project.productionUrl && !project.healthCheckUrl)
+  const unmonitored = liveProjects.filter((project) => !project.monitorTarget)
   if (unmonitored.length > 0) {
     const names = unmonitored.slice(0, 5).map((project) => project.name)
     const rest = unmonitored.length - names.length

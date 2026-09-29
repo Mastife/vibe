@@ -6,13 +6,16 @@ import { buildAlerts } from './alerts'
 const now = new Date('2026-09-29T12:00:00Z')
 
 function project(overrides: Partial<ProjectDto> & { id: string; name: string }): ProjectDto {
-  return {
+  const merged: ProjectDto = {
     slug: overrides.id,
     description: null,
     status: 'ACTIVE',
     repoUrl: null,
     productionUrl: 'https://example.com',
     healthCheckUrl: null,
+    sshHost: null,
+    dockerContainer: null,
+    monitorTarget: null,
     clientId: null,
     serverId: null,
     client: null,
@@ -39,6 +42,9 @@ function project(overrides: Partial<ProjectDto> & { id: string; name: string }):
     updatedAt: now.toISOString(),
     ...overrides,
   }
+  // Mirrors the backend rule: an explicit target wins, else the health-check or production URL.
+  const monitorTarget = overrides.monitorTarget !== undefined ? overrides.monitorTarget : (merged.healthCheckUrl ?? merged.productionUrl)
+  return { ...merged, monitorTarget }
 }
 
 function server(overrides: Partial<ServerDto> & { id: string; name: string; paidUntil: string | null }): ServerDto {

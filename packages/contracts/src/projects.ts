@@ -83,6 +83,10 @@ export const projectSchema = z.object({
   repoUrl: z.string().nullable(),
   productionUrl: z.string().nullable(),
   healthCheckUrl: z.string().nullable(),
+  sshHost: z.string().nullable(),
+  dockerContainer: z.string().nullable(),
+  /** What the monitor probes: health-check URL, else the Docker container over SSH, else the production URL. */
+  monitorTarget: z.string().nullable(),
   clientId: idSchema.nullable(),
   serverId: idSchema.nullable(),
   client: relatedRefSchema.nullable(),
@@ -111,6 +115,14 @@ function pilotDatesInOrder(value: { pilotStartsAt?: string | null; pilotEndsAt?:
   return !value.pilotStartsAt || !value.pilotEndsAt || value.pilotStartsAt <= value.pilotEndsAt
 }
 
+/** Host and container only make sense together; a PATCH that sends one of them must send both. */
+function dockerTargetComplete(value: { sshHost?: string | null; dockerContainer?: string | null }) {
+  if (value.sshHost === undefined && value.dockerContainer === undefined) return true
+  return Boolean(value.sshHost) === Boolean(value.dockerContainer)
+}
+
+const dockerTargetIssue = { message: 'Укажите и SSH-хост, и имя контейнера — или оставьте оба пустыми', path: ['dockerContainer'] }
+
 const pilotDatesIssue = { message: 'Пилот не может закончиться раньше, чем начался', path: ['pilotEndsAt'] }
 
 const projectFieldsSchema = z.object({
@@ -121,6 +133,26 @@ const projectFieldsSchema = z.object({
   repoUrl: optionalUrl(),
   productionUrl: optionalUrl(),
   healthCheckUrl: optionalUrl(),
+  sshHost: z.preprocess(
+    blankToNull,
+    z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z0-9_][A-Za-z0-9_.-]*@[A-Za-z0-9.-]+$/, 'SSH-хост вида user@1.2.3.4 или user@server.kz')
+      .max(255)
+      .nullable()
+      .optional(),
+  ),
+  dockerContainer: z.preprocess(
+    blankToNull,
+    z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z0-9][A-Za-z0-9_.-]*$/, 'Имя контейнера: латиница, цифры, точка, дефис, подчёркивание')
+      .max(128)
+      .nullable()
+      .optional(),
+  ),
   clientId: optionalId(),
   serverId: optionalId(),
   monthlyFee: optionalMoneySchema,
@@ -141,10 +173,15 @@ export const projectCreateSchema = projectFieldsSchema.extend({
   autoInvoice: z.boolean().default(false),
   billingDay: billingDaySchema.default(1),
   tags: tagsSchema.default([]),
-}).refine(pilotDatesInOrder, pilotDatesIssue)
+})
+  .refine(pilotDatesInOrder, pilotDatesIssue)
+  .refine(dockerTargetComplete, dockerTargetIssue)
 
 // Defaults would silently reset fields on PATCH, so updates derive from the default-free base.
-export const projectUpdateSchema = projectFieldsSchema.partial().refine(pilotDatesInOrder, pilotDatesIssue)
+export const projectUpdateSchema = projectFieldsSchema
+  .partial()
+  .refine(pilotDatesInOrder, pilotDatesIssue)
+  .refine(dockerTargetComplete, dockerTargetIssue)
 
 export const healthCheckRunSchema = z.object({
   id: idSchema,

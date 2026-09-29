@@ -39,6 +39,8 @@ type ProjectDraft = {
   serverId: string
   productionUrl: string
   healthCheckUrl: string
+  sshHost: string
+  dockerContainer: string
   repoUrl: string
   monthlyFee: string
   currency: string
@@ -67,6 +69,8 @@ const fieldTab: Record<FieldName, TabKey> = {
   description: 'main',
   productionUrl: 'monitoring',
   healthCheckUrl: 'monitoring',
+  sshHost: 'monitoring',
+  dockerContainer: 'monitoring',
   repoUrl: 'monitoring',
   monthlyFee: 'money',
   currency: 'money',
@@ -115,6 +119,8 @@ function toDraft(project: ProjectDto | undefined): ProjectDraft {
     serverId: project?.serverId ?? '',
     productionUrl: project?.productionUrl ?? '',
     healthCheckUrl: project?.healthCheckUrl ?? '',
+    sshHost: project?.sshHost ?? '',
+    dockerContainer: project?.dockerContainer ?? '',
     repoUrl: project?.repoUrl ?? '',
     monthlyFee: project?.monthlyFee === null || project?.monthlyFee === undefined ? '' : String(project.monthlyFee),
     currency: 'KZT',
@@ -413,6 +419,44 @@ function ProjectForm({
                   )}
                 />
               ))}
+              <div className="grid gap-4 rounded-lg border p-4 sm:grid-cols-2">
+                <Typography variant="bodySmMedium" className="sm:col-span-2">
+                  Docker-контейнер по SSH
+                </Typography>
+                {(
+                  [
+                    { name: 'sshHost', label: 'SSH-хост', placeholder: 'ubuntu@194.238.42.51' },
+                    { name: 'dockerContainer', label: 'Контейнер', placeholder: 'bonustar-bot' },
+                  ] as const
+                ).map((spec) => (
+                  <form.Field
+                    key={spec.name}
+                    name={spec.name}
+                    children={(field) => (
+                      <FormField id={`${id}-${spec.name}`} label={spec.label} errors={fieldErrors[spec.name]}>
+                        <Input
+                          id={`${id}-${spec.name}`}
+                          value={field.state.value}
+                          placeholder={spec.placeholder}
+                          autoCapitalize="off"
+                          spellCheck={false}
+                          aria-invalid={Boolean(fieldErrors[spec.name]?.length)}
+                          onBlur={field.handleBlur}
+                          onChange={(event) => {
+                            field.handleChange(event.target.value)
+                            clearError(spec.name)
+                          }}
+                        />
+                      </FormField>
+                    )}
+                  />
+                ))}
+                <Typography variant="caption" tone="muted" className="sm:col-span-2">
+                  Для ботов и сервисов без веб-адреса: панель заходит на сервер по SSH-ключу этого компьютера и
+                  проверяет, что контейнер запущен (и здоров, если у него есть healthcheck). Health-check URL, если
+                  указан, важнее.
+                </Typography>
+              </div>
               <form.Field
                 name="slug"
                 children={(field) => (
