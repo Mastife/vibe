@@ -47,20 +47,38 @@ export function parseDockerState(output: string, container: string): string | nu
   return null
 }
 
-/** One container probe over SSH; never throws, same result shape as the HTTP probe. */
+/**
+ * SSH handshakes are slower and burstier than HTTP (a busy sshd delays new connections), so the
+ * container probe gets at least this long regardless of the HTTP timeout.
+ */
+export const sshMinTimeoutMs = 20_000
+
+/** ssh exits with 255 on its own failures (connect, auth, host key); any other code comes from the remote command. */
+const sshTransportFailure = 255
+
+/**
+ * One container probe over SSH; never throws, same result shape as the HTTP probe. A transport
+ * failure (timeout or ssh's own error) is retried once, so a single dropped handshake is not
+ * reported as a stopped container.
+ */
 export async function checkDockerOverSsh(
   sshHost: string,
   container: string,
   options: CheckDockerOptions,
 ): Promise<HttpCheckResult> {
   const run = options.run ?? runCommand
+  const timeoutMs = Math.max(options.timeoutMs, sshMinTimeoutMs)
   const startedAt = performance.now()
   let error: string | null
 
   try {
-    const result = await run(dockerInspectCommand(sshHost, container, options.timeoutMs), options.timeoutMs)
+    const command = dockerInspectCommand(sshHost, container, timeoutMs)
+    let result = await run(command, timeoutMs)
+    if (result.timedOut || result.exitCode === sshTransportFailure) {
+      result = await run(command, timeoutMs)
+    }
     if (result.timedOut) {
-      error = `Нет ответа по SSH за ${options.timeoutMs} мс`
+      error = `Нет ответа по SSH за ${Math.round(timeoutMs / 1000)} с (2 попытки)`
     } else if (result.exitCode !== 0) {
       const detail = result.stderr.trim().split('\n').at(-1) ?? ''
       error = /no such (object|container)/i.test(result.stderr)

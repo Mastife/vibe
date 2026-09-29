@@ -611,4 +611,25 @@ maybeDescribe('projects hq API integration', () => {
     const cleared = await api('PATCH', `/api/projects/${projectId}`, { sshHost: null, dockerContainer: null, healthCheckUrl: null }, token)
     expect(cleared.body.project.monitorTarget).toBeNull()
   })
+
+  test('one incident across several projects arrives as one Telegram message', async () => {
+    const token = await registerAdmin()
+    for (const [name, container] of [['bonustar', 'bonustar-bot'], ['Handi', 'portal-bot']]) {
+      const created = await api('POST', '/api/projects', { name, sshHost: 'ubuntu@194.238.42.51', dockerContainer: container }, token)
+      expect(created.status).toBe(201)
+    }
+
+    dockerState.running = false
+    await services.healthService.checkAll()
+    expect(telegramMessages).toEqual([])
+    await services.healthService.checkAll()
+    expect(telegramMessages).toHaveLength(2)
+    // Different containers mean different errors, so each gets its own detailed alert.
+    expect(telegramMessages.every((text) => text.includes('недоступен'))).toBe(true)
+
+    dockerState.running = true
+    await services.healthService.checkAll()
+    expect(telegramMessages).toHaveLength(3)
+    expect(telegramMessages[2]).toBe('🟢 Снова работают: <b>bonustar</b>, <b>Handi</b>')
+  })
 })
