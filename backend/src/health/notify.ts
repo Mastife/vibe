@@ -10,8 +10,10 @@ export type HealthTransition =
  * (typically a whole server or its SSH being unreachable) share one message, and so do recoveries,
  * so a single incident does not arrive as a burst of near-identical alerts.
  */
-export function formatTransitions(transitions: HealthTransition[], appUrl?: string): string[] {
+export function formatTransitions(unordered: HealthTransition[], appUrl?: string): string[] {
   const messages: string[] = []
+  // Checks run in parallel, so order by name for stable, readable messages.
+  const transitions = [...unordered].sort((a, b) => a.name.localeCompare(b.name, 'ru'))
 
   const downsByError = new Map<string, Extract<HealthTransition, { kind: 'down' }>[]>()
   for (const transition of transitions) {

@@ -28,14 +28,14 @@ describe('formatTransitions', () => {
     )
     expect(messages).toHaveLength(2)
     expect(messages[0]).toBe(
-      '🔴 Недоступны 3 проекта — одна причина:\nНет ответа по SSH за 10000 мс\n• <b>bonustar</b>\n• <b>BF_Dashboard</b>\n• <b>Handi</b>\nhttp://hq',
+      '🔴 Недоступны 3 проекта — одна причина:\nНет ответа по SSH за 10000 мс\n• <b>BF_Dashboard</b>\n• <b>bonustar</b>\n• <b>Handi</b>\nhttp://hq',
     )
     expect(messages[1]).toStartWith('🔴 <b>Moika</b> недоступен\nHTTP 502')
   })
 
   test('announces several recoveries at once and says nothing when nothing changed', () => {
     expect(formatTransitions([up('bonustar'), up('BF_Dashboard'), up('Handi')])).toEqual([
-      '🟢 Снова работают: <b>bonustar</b>, <b>BF_Dashboard</b>, <b>Handi</b>',
+      '🟢 Снова работают: <b>BF_Dashboard</b>, <b>bonustar</b>, <b>Handi</b>',
     ])
     expect(formatTransitions([])).toEqual([])
   })
