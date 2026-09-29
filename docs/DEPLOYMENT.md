@@ -1,19 +1,46 @@
 # Deployment
 
-Use this document only after the user has asked for deployment. Read the root [README.md](../README.md) and active surface READMEs first; they record the installed project's active surfaces, deferred surfaces, release targets, and validation scope.
+Projects HQ is an internal, single-owner panel. The recommended production path is **one of your own VPS servers with Docker Compose** (`deploy/`): it costs nothing extra and keeps the panel next to the projects it watches. DigitalOcean App Platform remains a supported alternative through the committed spec templates.
 
-The default production path is DigitalOcean App Platform plus DigitalOcean Managed PostgreSQL. Do not ask the user to choose a cloud provider during first-run setup. Ask for product-facing release details instead:
+Local setup from `README.md` and [LOCAL_DATABASE.md](LOCAL_DATABASE.md) does not require cloud credentials. If you explicitly want Yandex Cloud, use [YANDEX_CLOUD.md](YANDEX_CLOUD.md).
 
-- which active surfaces should be released now: backend/API, web, landing, or full-stack;
-- production domains/URLs for API, web, and landing;
-- whether uploads, images, media, exports, or downloads need DigitalOcean Spaces in this release;
-- whether real-time chat, presence, collaboration, live notifications, or WebSocket-style updates must work across multiple backend instances;
-- whether mobile is active; if yes, switch to the `mobile` branch before mobile release planning;
-- whether an external CDN is required for advanced bot, rate-limit, or geographic traffic controls.
+## VPS With Docker Compose
 
-Local setup from `README.md` and [LOCAL_DATABASE.md](LOCAL_DATABASE.md) does not require cloud credentials.
+Requirements: a VPS with Docker Engine + Compose plugin, a domain with an A/AAAA record pointing at it, ports 80 and 443 open.
 
-If the user explicitly asks for Yandex Cloud, use [YANDEX_CLOUD.md](YANDEX_CLOUD.md) as the provider runbook. The supported Yandex Cloud alternative is Serverless Containers for backend/API, Managed Service for PostgreSQL for production data, Object Storage for files and static websites, and Cloud CDN for public static/media delivery.
+```bash
+git clone git@github.com:Mastife/projects-hq.git
+cd projects-hq
+cp deploy/.env.production.example deploy/.env.production
+# fill in HQ_DOMAIN, POSTGRES_PASSWORD (openssl rand -hex 24), JWT_SECRET (openssl rand -hex 32),
+# and optionally TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID / GITHUB_TOKEN / ADMIN_EMAILS
+docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.production up -d --build
+```
+
+What the stack runs:
+
+- `postgres` - PostgreSQL 18 with a named volume.
+- `migrate` - one-shot `prisma migrate deploy`; `api` and `worker` wait for it.
+- `api` - the Hono API on port 8080 inside the network.
+- `worker` - `bun run start:worker`: availability checks, GitHub sync, history pruning, daily Telegram digest.
+- `web` - Caddy serving the built SPA and proxying `/api/*` to the API on the same origin; TLS certificates are issued automatically for `HQ_DOMAIN`.
+
+Because the SPA and the API share one origin, `CORS_ORIGINS`, `APP_URL`, and `VITE_API_URL` are all derived from `HQ_DOMAIN` inside the compose file.
+
+First login: open `https://<HQ_DOMAIN>` and create the first account; registration then closes. Optional one-time import of projects from the owner's GitHub list:
+
+```bash
+docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.production exec api bun run seed
+```
+
+Updating:
+
+```bash
+git pull
+docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.production up -d --build
+```
+
+Backups: `docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.production exec postgres pg_dump -U hq projects_hq > backup.sql`.
 
 ## Release Source Preflight
 
@@ -35,10 +62,13 @@ Do not store secrets in the repository. Minimum backend production env:
 ```bash
 DATABASE_URL=postgresql://...
 JWT_SECRET=<at-least-32-random-characters>
-CORS_ORIGINS=https://web.example.com,https://landing.example.com
+CORS_ORIGINS=https://hq.example.com
 ACCESS_TOKEN_TTL_SECONDS=900
 REFRESH_TOKEN_TTL_DAYS=30
 COOKIE_SECURE=true
+APP_URL=https://hq.example.com
+# optional: ADMIN_EMAILS, TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID, GITHUB_TOKEN,
+# HEALTH_CHECK_INTERVAL_SECONDS, HEALTH_CHECK_TIMEOUT_MS, DAILY_DIGEST_HOUR_UTC
 ```
 
 `CORS_ORIGINS` must include every browser origin that calls the API with credentials. Use exact origins only, for example `https://web.example.com`; do not use wildcards, empty values, or paths.
@@ -92,7 +122,7 @@ Consult the current App Spec docs before applying a generated spec because provi
 Keep committed spec templates under `.do/*.yaml.example`. Generate concrete specs only into `.scratch/deploy` with:
 
 ```bash
-bun run deploy:do:specs <backend-initial|backend-final|web|landing|all>
+bun run deploy:do:specs <backend-initial|backend-final|web|all>
 ```
 
 The generator rejects empty `value:` lines, unresolved `REPLACE_WITH_*` placeholders, wildcard/empty/path-bearing production CORS origins, short, placeholder, or obviously weak `JWT_SECRET`, and missing build-time static URLs. Do not replace secrets or URLs with manual `sed`, `perl`, or shell one-liners.
@@ -134,18 +164,15 @@ bun run deploy:do:specs web
 doctl apps spec validate .scratch/deploy/web-static-app.yaml
 doctl apps create --spec .scratch/deploy/web-static-app.yaml
 
-# 3. After the web URL exists, update backend CORS and create landing if active.
+# 3. After the web URL exists, update backend CORS and add the monitoring worker.
 export DO_WEB_URL=https://<web-default-ingress>
+export DO_BACKEND_WORKER_ENABLED=true
 bun run deploy:do:specs backend-final
 doctl apps spec validate .scratch/deploy/backend-app.yaml
 doctl apps update <backend-app-id> --spec .scratch/deploy/backend-app.yaml
-
-bun run deploy:do:specs landing
-doctl apps spec validate .scratch/deploy/landing-static-app.yaml
-doctl apps create --spec .scratch/deploy/landing-static-app.yaml
 ```
 
-Static Sites build from the connected Git branch, not from local `dist` folders. The branch must contain the full web/backend monorepo: root `package.json`, `bun.lock`, `backend`, `web`, `landing`, and `packages/contracts`.
+Static Sites build from the connected Git branch, not from local `dist` folders. The branch must contain the full web/backend monorepo: root `package.json`, `bun.lock`, `backend`, `web`, and `packages/contracts`.
 
 ## Backend API
 
@@ -174,7 +201,7 @@ Backend service requirements:
 - Attach DigitalOcean Managed PostgreSQL or provide its connection string as `DATABASE_URL`.
 - Add Spaces env only when the product uses storage. Leave Spaces env blank for projects without uploads.
 
-The default one-container shape is not a high-availability floor; it is the budget starter that keeps backend plus the smallest Managed PostgreSQL cluster around $27/month before taxes, traffic overages, storage, and optional add-ons. Raise `instance_count` to two or three when availability or traffic justifies the extra monthly cost. Use `apps-s-1vcpu-2gb` or larger shared containers when memory pressure is the primary limit. Move to dedicated CPU only after metrics show CPU-bound work, noisy shared-CPU performance, strict latency requirements, or a need for CPU-based autoscaling. `web` and `landing` are Static Site components and do not have App Platform runtime container sizes.
+The default one-container shape is not a high-availability floor; it is the budget starter that keeps backend plus the smallest Managed PostgreSQL cluster around $27/month before taxes, traffic overages, storage, and optional add-ons. Raise `instance_count` to two or three when availability or traffic justifies the extra monthly cost. Use `apps-s-1vcpu-2gb` or larger shared containers when memory pressure is the primary limit. Move to dedicated CPU only after metrics show CPU-bound work, noisy shared-CPU performance, strict latency requirements, or a need for CPU-based autoscaling. `web` is a Static Site component and does not have an App Platform runtime container size.
 
 Apply Prisma migrations from a protected one-off App Platform console/job with the same production env:
 
@@ -189,32 +216,30 @@ Do not run `prisma migrate dev` in production and do not hand-write migration SQ
 The backend ships as one Docker image with separate entrypoints:
 
 - API service: `bun run start:api`
-- long-running worker: `bun run start:worker`
-- one-shot cron runner: `bun run start:cron -- <task>`
+- monitoring worker: `bun run start:worker` (health checks, GitHub sync, history pruning, daily digest)
+- one-shot cron runner: `bun run start:cron -- <task>` with tasks `health:check`, `health:prune`, `github:sync`, `digest:daily`, `noop`, `db:ping`
 
-Keep API, worker, and cron in the same backend workspace so they share Prisma schema, generated Prisma client, env validation, contracts, and feature services. Do not create a second backend package or repository just to run background code.
+The worker is required for monitoring and Telegram alerts to happen without anyone opening the panel. Run exactly one worker instance.
 
-DigitalOcean App Platform supports non-routable worker components and scheduled job components in the same app spec. The committed backend template always includes the API service and `migrate` pre-deploy job. Optional worker and scheduled jobs are inserted by the generator only when explicitly configured:
+On DigitalOcean App Platform, `DO_BACKEND_WORKER_ENABLED=true` adds a worker component that runs `bun run start:worker` by default (override with `DO_BACKEND_WORKER_RUN_COMMAND` only for a custom entrypoint). Scheduled job components can still run one-shot tasks, but App Platform's minimum cadence is 15 minutes, so prefer the worker for availability checks:
 
 ```bash
-# Add one worker component only after adding a real long-running handler.
 export DO_BACKEND_WORKER_ENABLED=true
-export DO_BACKEND_WORKER_RUN_COMMAND="bun run start:worker:real-handler"
 
-# Add one scheduled job component.
-export DO_BACKEND_CRON_NAME=daily-maintenance
-export DO_BACKEND_CRON_TASK=noop
+# Optional scheduled job, for example a nightly history prune.
+export DO_BACKEND_CRON_NAME=nightly-prune
+export DO_BACKEND_CRON_TASK=health:prune
 export DO_BACKEND_CRON_SCHEDULE="0 3 * * *"
 export DO_BACKEND_CRON_TIME_ZONE=UTC
 
 bun run deploy:do:specs backend-final
 ```
 
-Use worker components only after a real long-running handler exists. The generator requires `DO_BACKEND_WORKER_RUN_COMMAND` and refuses the template placeholder `bun run start:worker`, because that placeholder exits immediately and should not be deployed as an App Platform worker. Use scheduled jobs only for concrete product tasks, and keep the schedule at DigitalOcean's supported cadence of at least 15 minutes. Both optional components use `backend/Dockerfile`, the repository-root build context, and the same managed PostgreSQL binding as the API. Add Spaces or other runtime secrets to those components when the specific background task needs them.
+Both optional components use `backend/Dockerfile`, the repository-root build context, and the same managed PostgreSQL binding as the API. Add `TELEGRAM_*`, `GITHUB_TOKEN`, and `APP_URL` to the worker component when notifications and GitHub sync are wanted in production.
 
 ## Real-Time And Horizontal Scaling
 
-Keep production architecture monolithic by default: one backend service can own HTTP routes, auth, persistence, and any WebSocket endpoints. Do not split chat, notifications, or presence into separate services unless there is a proven operational need.
+Keep production architecture monolithic: one API service, one worker, one PostgreSQL. The panel has no WebSocket layer.
 
 When the backend runs as a single instance, WebSocket connection state can stay in that process. When App Platform is scaled to multiple containers, clients may connect to different backend instances. Any feature that must deliver the same event across those instances, such as chat messages, presence changes, or live notifications, needs a shared Pub/Sub broker.
 
@@ -242,24 +267,6 @@ Required component shape:
 App Platform Static Sites are served through DigitalOcean's global CDN by default. Do not disable the CDN cache unless the product needs a specific behavior that the built-in CDN cannot provide.
 
 `VITE_API_URL` is embedded at build time. If it is empty, the browser app can call its own static-site origin at `/api/*` instead of the backend. After changing `VITE_API_URL`, redeploy the static site; runtime env changes alone do not rewrite the already built bundle.
-
-## Landing Static Site
-
-Deploy `landing` as an App Platform Static Site component.
-
-The minimum sufficient landing tier is Static Site only. Do not add `instance_size_slug`, `instance_count`, or a service/container component unless the landing surface later needs server-side runtime behavior.
-
-Required component shape:
-
-- Source directory/build context: repository root.
-- Build command: `bun install --frozen-lockfile && bun run build:landing`.
-- Output directory: `landing/dist`.
-- Index document: `index.html`.
-- Build-time env only when the landing page intentionally needs public config, such as `PUBLIC_WEB_APP_URL=https://web.example.com`.
-
-Keep landing independent from authenticated browser-app flows unless the product explicitly needs shared API data.
-
-`PUBLIC_WEB_APP_URL` is also build-time public config. If landing links point to the web app, generate it as a concrete URL and redeploy landing after it changes.
 
 ## Managed PostgreSQL
 
@@ -304,7 +311,7 @@ DigitalOcean Spaces and Spaces CDN do not provide first-party dynamic image tran
 
 ## CDN And Domains
 
-For `web` and `landing`, App Platform Static Sites already use DigitalOcean's global CDN. This is the default path.
+For `web`, App Platform Static Sites already use DigitalOcean's global CDN. This is the default path.
 
 Use an external CDN only for explicit advanced needs such as custom WAF rules, bot filtering, custom rate limiting, or geographic traffic controls. If an external CDN is used in front of App Platform:
 
@@ -312,10 +319,6 @@ Use an external CDN only for explicit advanced needs such as custom WAF rules, b
 - point the CDN origin to the default App Platform ingress, for example `<app-name>.ondigitalocean.app`;
 - use HTTPS on port `443`;
 - do not forward the original custom-domain `Host` header to App Platform.
-
-## Mobile Releases
-
-The default branch does not contain the runnable Expo app. Mobile release work, including Expo/EAS env, development builds, production builds, and App Store / Google Play guidance, lives on the `mobile` branch.
 
 ## Validation
 
@@ -327,7 +330,7 @@ bun run test
 bun run build
 ```
 
-For narrow deployment-only documentation or App Platform config work, run the subset that matches the affected surfaces, for example `bun run deploy:do:specs all`, `bun run build:web`, `bun run build:landing`, or `bun run --cwd backend smoke:docker`.
+For narrow deployment-only documentation or App Platform config work, run the subset that matches the affected surfaces, for example `bun run deploy:do:specs all`, `bun run build:web`, or `bun run --cwd backend smoke:docker`.
 
 After deployment:
 
@@ -335,7 +338,6 @@ After deployment:
 - verify `/health` on the backend public URL;
 - verify browser auth only from allowed `CORS_ORIGINS`;
 - verify `web` route refreshes hit the React catch-all instead of a static 404;
-- verify `landing` loads static assets from the deployed domain;
 - verify public media loads through the Spaces CDN domain when storage is active;
 - verify private file links expire and require backend authorization when private storage is active;
 - verify Prisma migrations were applied exactly once to the production database.
@@ -348,7 +350,6 @@ After deployment:
 - Backend crash on startup: empty, placeholder, or obviously weak `JWT_SECRET` is rejected by env validation, so the spec generator must fail before App Platform deploys it.
 - Broken browser auth CORS: production CORS must use exact HTTPS origins, not wildcard or empty values.
 - Web calling its own `/api/*`: missing `VITE_API_URL` at static build time makes the bundle use the wrong origin.
-- Empty landing links: missing `PUBLIC_WEB_APP_URL` at build time can bake invalid public links into landing output.
 - Stale remote build dependencies: static site build commands run `bun install --frozen-lockfile` before `bun run build:*`.
 - Frozen backend install failures: `backend/Dockerfile` copies all workspace manifests before `bun install --frozen-lockfile`.
 - Wrong App Platform port: backend specs set both `http_port: 8080` and `PORT=8080`.

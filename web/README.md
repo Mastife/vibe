@@ -1,10 +1,16 @@
 # Web
 
-The browser client provides the baseline auth flow for future web features. It consumes the same API contracts as mobile and should keep server-state, form-state, and auth behavior centralized.
+The browser client is the Projects HQ admin panel: overview, projects with health history, servers with payment tracking, clients, and invoices. It consumes the shared contracts and keeps server-state, form-state, and auth behavior centralized.
 
-## Project Surface Status
+## Screens
 
-This section may be updated during first-run bootstrap. If the root `README.md` marks web as deferred, add a short note here explaining that browser work is intentionally paused. When the user activates web, remove or rewrite that note before starting browser development.
+- `/` - overview: KPI tiles, «Требует внимания», availability table, upcoming server payments, open invoices.
+- `/projects`, `/projects/:id` - list with status filter and per-row check/edit/delete; detail with monitoring facts, health history chart plus table twin, project invoices.
+- `/servers`, `/servers/:id` - list with payment badges and «Оплатить»; detail with payment log.
+- `/clients` - contacts, project counts, outstanding per currency.
+- `/invoices` - status filter, quick «Оплачен», create/edit.
+
+The login screen offers registration only while it is open (first run or `ADMIN_EMAILS`).
 
 ## Stack
 
@@ -49,7 +55,7 @@ VITE_API_URL=http://localhost:3000
 
 ## Deployment
 
-Production deployment for the browser app uses DigitalOcean App Platform Static Sites from the full Git monorepo branch with `bun install --frozen-lockfile && bun run build:web`, `web/dist`, and `index.html` as the SPA catch-all by default. Generate the concrete spec with `bun run deploy:do:specs`; App Platform builds from Git, not from local `dist`. Follow the shared runbook in [../docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md). If the user explicitly chooses Yandex Cloud, deploy the built `web/dist` output through Yandex Object Storage static website hosting plus Cloud CDN by following [../docs/YANDEX_CLOUD.md](../docs/YANDEX_CLOUD.md).
+On the VPS stack, `web/Dockerfile` builds the SPA with `VITE_API_URL=https://<HQ_DOMAIN>` and serves it through Caddy on the same origin as the API (see `deploy/`). DigitalOcean App Platform Static Sites remain supported through `bun run deploy:do:specs web`. Follow [../docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md).
 
 ## Practice
 
@@ -74,9 +80,9 @@ Use the local `shadcn` devDependency pinned in `web/package.json` and `bun.lock`
 
 ## E2E
 
-The Playwright smoke test lives in `e2e/specs/auth.spec.ts` and verifies client-side auth validation visibility, register/login mode switching, register, refresh after reload, protected UI, logout, invalid login error rendering, and a successful login after logout.
+The Playwright journey lives in `e2e/specs/admin.spec.ts`: first-admin registration, session restore, client/server/project creation, a manual health check against the backend's own `/health`, the overview alert for a server due soon, a recorded server payment, logout, closed registration, and login.
 
-The run starts Docker Compose `postgres_test`, applies migrations to `projects_hq_test`, starts the backend with `TEST_DATABASE_URL` as its `DATABASE_URL`, starts Vite, and removes the test database volume after the run by default.
+The run starts Docker Compose `postgres_test`, applies migrations to `projects_hq_test`, starts the backend with `TEST_DATABASE_URL` as its `DATABASE_URL`, starts Vite, and removes the test database volume after the run by default. Set `PLAYWRIGHT_CHROMIUM_EXECUTABLE` to reuse a preinstalled browser.
 
 First run:
 
