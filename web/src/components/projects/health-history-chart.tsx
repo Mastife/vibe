@@ -22,7 +22,7 @@ const chartConfig = {
 const timeFormatter = new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' })
 
 /** Latency line for successful checks plus red markers on the baseline for failed ones; the table twin sits below. */
-export function HealthHistoryChart({ runs }: { runs: HealthCheckRunDto[] }) {
+export function HealthHistoryChart({ runs, withTable = true }: { runs: HealthCheckRunDto[]; withTable?: boolean }) {
   if (runs.length === 0) {
     return <EmptyState title="Проверок ещё не было" description="Нажмите «Проверить сейчас» или дождитесь фоновой проверки." />
   }
@@ -77,29 +77,38 @@ export function HealthHistoryChart({ runs }: { runs: HealthCheckRunDto[] }) {
         </LineChart>
       </ChartContainer>
 
-      <div className="grid gap-2">
-        <Typography variant="bodySmMedium">Последние проверки</Typography>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Время</TableHead>
-              <TableHead>Результат</TableHead>
-              <TableHead>HTTP</TableHead>
-              <TableHead>Ответ</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {runs.slice(0, 12).map((run) => (
-              <TableRow key={run.id}>
-                <TableCell>{formatDateTime(run.checkedAt)}</TableCell>
-                <TableCell>{run.ok ? 'Успешно' : (run.error ?? 'Ошибка')}</TableCell>
-                <TableCell>{run.statusCode ?? '—'}</TableCell>
-                <TableCell>{formatLatency(run.latencyMs)}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+      {withTable && (
+        <div className="grid gap-2">
+          <Typography variant="bodySmMedium">Последние проверки</Typography>
+          <HealthRunsTable runs={runs} />
+        </div>
+      )}
     </div>
+  )
+}
+
+/** The raw log of recent checks: the table twin of the chart. */
+export function HealthRunsTable({ runs }: { runs: HealthCheckRunDto[] }) {
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Время</TableHead>
+          <TableHead>Результат</TableHead>
+          <TableHead>HTTP</TableHead>
+          <TableHead>Ответ</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {runs.slice(0, 12).map((run) => (
+          <TableRow key={run.id}>
+            <TableCell>{formatDateTime(run.checkedAt)}</TableCell>
+            <TableCell>{run.ok ? 'Успешно' : (run.error ?? 'Ошибка')}</TableCell>
+            <TableCell>{run.statusCode ?? '—'}</TableCell>
+            <TableCell>{formatLatency(run.latencyMs)}</TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   )
 }
