@@ -88,6 +88,7 @@ docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.producti
 | `APP_URL` | Публичный адрес панели для ссылок в уведомлениях |
 | `HEALTH_CHECK_INTERVAL_SECONDS` | Период проверок доступности (по умолчанию 300) |
 | `HEALTH_CHECK_TIMEOUT_MS` | Таймаут одной проверки (по умолчанию 10000) |
+| `HEALTH_DOWN_AFTER_FAILURES` | Сколько неудачных проверок подряд нужно, чтобы проект считался недоступным и пришло уведомление (по умолчанию 2 — одиночный таймаут не поднимает тревогу) |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Уведомления о падениях и ежедневная сводка |
 | `DAILY_DIGEST_HOUR_UTC` | Час сводки в UTC (6 = 09:00 по Москве) |
 | `INVOICE_DUE_DAYS` | Срок оплаты автоматических счетов в днях (по умолчанию 10) |

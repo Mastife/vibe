@@ -68,6 +68,8 @@ const envSchema = z.object({
   HEALTH_CHECK_INTERVAL_SECONDS: z.coerce.number().int().min(30).default(300),
   HEALTH_CHECK_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60_000).default(10_000),
   HEALTH_HISTORY_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(30),
+  // Failed checks in a row before a project counts as down (and the Telegram alert fires).
+  HEALTH_DOWN_AFTER_FAILURES: z.coerce.number().int().min(1).max(10).default(2),
   GITHUB_TOKEN: optionalStringSchema,
   GITHUB_SYNC_INTERVAL_SECONDS: z.coerce.number().int().min(300).default(3600),
   TELEGRAM_BOT_TOKEN: optionalStringSchema,

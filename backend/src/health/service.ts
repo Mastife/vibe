@@ -7,6 +7,7 @@ import { addDays } from '../lib/dates'
 import { escapeHtml, type Notifier } from '../notifications/telegram'
 import { checkUrl, type HttpCheckResult } from './checker'
 import { toHealthRunDto } from './dto'
+import { nextHealthState } from './transition'
 
 type MonitoredProject = {
   id: string
@@ -14,6 +15,7 @@ type MonitoredProject = {
   healthCheckUrl: string | null
   productionUrl: string | null
   lastHealthStatus: HealthStatus
+  consecutiveFailures: number
 }
 
 const monitoredSelect = {
@@ -22,6 +24,7 @@ const monitoredSelect = {
   healthCheckUrl: true,
   productionUrl: true,
   lastHealthStatus: true,
+  consecutiveFailures: true,
 } as const
 
 const batchConcurrency = 5
@@ -34,7 +37,10 @@ export function monitoredUrl(project: Pick<MonitoredProject, 'healthCheckUrl' | 
 export class HealthService {
   constructor(
     private readonly db: DbClient,
-    private readonly env: Pick<AppEnv, 'HEALTH_CHECK_TIMEOUT_MS' | 'HEALTH_HISTORY_RETENTION_DAYS' | 'APP_URL'>,
+    private readonly env: Pick<
+      AppEnv,
+      'HEALTH_CHECK_TIMEOUT_MS' | 'HEALTH_HISTORY_RETENTION_DAYS' | 'HEALTH_DOWN_AFTER_FAILURES' | 'APP_URL'
+    >,
     private readonly notifier: Notifier | null,
     private readonly check: typeof checkUrl = checkUrl,
   ) {}
@@ -96,7 +102,11 @@ export class HealthService {
 
   private async runCheck(project: MonitoredProject, url: string): Promise<HealthCheckRunDto> {
     const result = await this.check(url, { timeoutMs: this.env.HEALTH_CHECK_TIMEOUT_MS })
-    const nextStatus: HealthStatus = result.ok ? 'UP' : 'DOWN'
+    const next = nextHealthState(
+      { status: project.lastHealthStatus, consecutiveFailures: project.consecutiveFailures },
+      result.ok,
+      this.env.HEALTH_DOWN_AFTER_FAILURES,
+    )
     const checkedAt = new Date()
 
     const [run] = await this.db.$transaction([
@@ -114,7 +124,8 @@ export class HealthService {
       this.db.project.update({
         where: { id: project.id },
         data: {
-          lastHealthStatus: nextStatus,
+          lastHealthStatus: next.status,
+          consecutiveFailures: next.consecutiveFailures,
           lastCheckedAt: checkedAt,
           lastLatencyMs: result.latencyMs,
           lastStatusCode: result.statusCode,
@@ -125,7 +136,7 @@ export class HealthService {
       }),
     ])
 
-    await this.notifyTransition(project, url, nextStatus, result)
+    await this.notifyTransition(project, url, next.status, result)
 
     return toHealthRunDto(run)
   }
