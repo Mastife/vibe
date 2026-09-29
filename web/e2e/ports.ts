@@ -7,12 +7,14 @@ import { portFromUrl } from './url'
 export const repositoryRoot = resolve(fileURLToPath(new URL('../..', import.meta.url)))
 export const repositoryHash = createHash('sha256').update(repositoryRoot).digest('hex').slice(0, 12)
 
+// Derived ports stay below the Linux ephemeral range (32768+), so outbound connections on CI runners
+// cannot occupy them between the availability probe and the server start.
 const preferredPostgresTestPort =
-  30000 + (Number.parseInt(repositoryHash.slice(0, 6), 16) % 20000)
+  20000 + (Number.parseInt(repositoryHash.slice(0, 6), 16) % 5000)
 const preferredBackendPort =
-  50000 + (Number.parseInt(repositoryHash.slice(6, 12), 16) % 5000)
+  25000 + (Number.parseInt(repositoryHash.slice(6, 12), 16) % 5000)
 const preferredWebPort =
-  55000 + (Number.parseInt(repositoryHash.slice(0, 6), 16) % 5000)
+  30000 + (Number.parseInt(repositoryHash.slice(0, 6), 16) % 2700)
 
 export type PortPlan = {
   backendPort: number
