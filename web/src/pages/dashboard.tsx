@@ -7,6 +7,7 @@ import { AlertsList } from '@/components/dashboard/alerts-list'
 import { MonitoredProjectsTable } from '@/components/dashboard/monitored-projects-table'
 import { StatTile } from '@/components/dashboard/stat-tile'
 import { StatusBoard } from '@/components/dashboard/status-board'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { OpenInvoicesList, UpcomingServerPayments } from '@/components/dashboard/upcoming-payments'
 import { PageHeader } from '@/components/page-header'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -21,6 +22,8 @@ const skeletonSlots = [0, 1, 2, 3, 4, 5]
 export function DashboardPage() {
   const dashboard = useDashboard()
   const runChecks = useRunHealthChecks()
+  // Rendered, not CSS-hidden, so the page never carries both layouts at once.
+  const isMobile = useIsMobile() === true
 
   function handleRunChecks() {
     runChecks.mutate(undefined, {
@@ -35,14 +38,14 @@ export function DashboardPage() {
 
   return (
     <>
-      <div className="hidden md:block">
+      {!isMobile && (
         <PageHeader title="Обзор" description="Здоровье проектов, оплата серверов и счета клиентов в одном месте.">
           <Button type="button" variant="outline" onClick={handleRunChecks} disabled={runChecks.isPending}>
             <HugeiconsIcon icon={Refresh01Icon} strokeWidth={2} data-icon="inline-start" />
             {runChecks.isPending ? 'Проверяем...' : 'Проверить все проекты'}
           </Button>
         </PageHeader>
-      </div>
+      )}
 
       {dashboard.isError && (
         <Alert variant="destructive">
@@ -59,11 +62,11 @@ export function DashboardPage() {
         </div>
       ) : (
         <>
-          {/* Phones get a one-screen status board; wider screens keep the full tile row below. */}
-          <div className="md:hidden">
+          {/* Phones get a one-screen status board; wider screens keep the full tile row. */}
+          {isMobile ? (
             <StatusBoard data={data} onRunChecks={handleRunChecks} checking={runChecks.isPending} />
-          </div>
-          <div className="hidden gap-4 md:grid md:grid-cols-2 xl:grid-cols-6">
+          ) : (
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
             <StatTile
               label="Проекты работают"
               value={`${data.projects.up} из ${data.projects.up + data.projects.down + data.projects.unknown}`}
@@ -103,6 +106,7 @@ export function DashboardPage() {
               hint="оплаченные счета"
             />
           </div>
+          )}
 
           <div className="grid gap-6 xl:grid-cols-3">
             <Card className="xl:col-span-2">
