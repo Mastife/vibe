@@ -3,7 +3,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import type { ProjectDto } from '@projects-hq/contracts'
 import { Link } from '@tanstack/react-router'
 
-import { HealthBadge, ProjectStatusBadge } from '@/components/status-badges'
+import { HealthBadge, PilotBadge, ProjectStatusBadge } from '@/components/status-badges'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Typography } from '@/components/ui/typography'
@@ -50,7 +50,10 @@ export function ProjectsTable({ projects, checkingId, onCheck, onEdit, onDelete 
                 </div>
               </TableCell>
               <TableCell>
-                <ProjectStatusBadge status={project.status} />
+                <div className="flex flex-wrap gap-1">
+                  <ProjectStatusBadge status={project.status} />
+                  <PilotBadge pilot={project.pilot} />
+                </div>
               </TableCell>
               <TableCell>
                 <HealthBadge status={project.health.status} />

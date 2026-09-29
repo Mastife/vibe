@@ -11,9 +11,10 @@ import { toHealthRunDto } from '../health/dto'
 import { AppError } from '../http/errors'
 import { mapPrismaError } from '../http/prisma-errors'
 import { invoiceInclude, toInvoiceDto } from '../invoices/dto'
-import { addDays, toIsoOrNull } from '../lib/dates'
+import { addDays, parseDateOnly, parseDateOnlyOrNull, toIsoOrNull } from '../lib/dates'
 import { decimalToNumber } from '../lib/money'
 import { slugify, uniqueSlug } from '../lib/slug'
+import { projectPilot } from './pilot'
 
 const messages = {
   notFound: 'Проект не найден',
@@ -44,14 +45,14 @@ export class ProjectsService {
       rows.map((row) => row.id),
       now,
     )
-    return rows.map((row) => toProjectDto(row, stats.get(row.id)))
+    return rows.map((row) => toProjectDto(row, stats.get(row.id), now))
   }
 
   async get(id: string, now = new Date()): Promise<ProjectDto> {
     const row = await this.db.project.findUnique({ where: { id }, include: projectInclude })
     if (!row) throw new AppError(404, 'NOT_FOUND', messages.notFound)
     const stats = await this.uptimeStats([id], now)
-    return toProjectDto(row, stats.get(id))
+    return toProjectDto(row, stats.get(id), now)
   }
 
   async getDetail(id: string, now = new Date()): Promise<ProjectDetailResponse> {
@@ -76,7 +77,7 @@ export class ProjectsService {
     }
   }
 
-  async create(payload: ProjectCreatePayload): Promise<ProjectDto> {
+  async create(payload: ProjectCreatePayload, now = new Date()): Promise<ProjectDto> {
     assertAutoInvoiceReady(payload.autoInvoice, payload.clientId ?? null, payload.monthlyFee ?? null)
     const slug = await this.resolveSlug(payload.slug ?? null, payload.name)
     const row = await this.db.project
@@ -95,6 +96,9 @@ export class ProjectsService {
           currency: payload.currency,
           autoInvoice: payload.autoInvoice,
           billingDay: payload.billingDay,
+          pilotStartsAt: payload.pilotStartsAt ? parseDateOnly(payload.pilotStartsAt) : null,
+          pilotEndsAt: payload.pilotEndsAt ? parseDateOnly(payload.pilotEndsAt) : null,
+          pilotOutcome: payload.pilotOutcome ?? null,
           tags: payload.tags,
           notes: payload.notes ?? null,
         },
@@ -102,7 +106,7 @@ export class ProjectsService {
       })
       .catch((error: unknown) => mapPrismaError(error, messages))
 
-    return toProjectDto(row)
+    return toProjectDto(row, undefined, now)
   }
 
   async update(id: string, payload: ProjectUpdatePayload, now = new Date()): Promise<ProjectDto> {
@@ -141,6 +145,9 @@ export class ProjectsService {
           currency: payload.currency,
           autoInvoice: payload.autoInvoice,
           billingDay: payload.billingDay,
+          pilotStartsAt: parseDateOnlyOrNull(payload.pilotStartsAt),
+          pilotEndsAt: parseDateOnlyOrNull(payload.pilotEndsAt),
+          pilotOutcome: payload.pilotOutcome,
           tags: payload.tags,
           notes: payload.notes,
         },
@@ -149,7 +156,7 @@ export class ProjectsService {
       .catch((error: unknown) => mapPrismaError(error, messages))
 
     const stats = await this.uptimeStats([id], now)
-    return toProjectDto(row, stats.get(id))
+    return toProjectDto(row, stats.get(id), now)
   }
 
   async remove(id: string): Promise<void> {
@@ -214,7 +221,7 @@ function assertAutoInvoiceReady(autoInvoice: boolean | undefined, clientId: stri
   }
 }
 
-export function toProjectDto(row: ProjectRow, stats?: UptimeStats): ProjectDto {
+export function toProjectDto(row: ProjectRow, stats?: UptimeStats, now = new Date()): ProjectDto {
   return {
     id: row.id,
     name: row.name,
@@ -232,6 +239,7 @@ export function toProjectDto(row: ProjectRow, stats?: UptimeStats): ProjectDto {
     currency: row.currency,
     autoInvoice: row.autoInvoice,
     billingDay: row.billingDay,
+    pilot: projectPilot(row.pilotStartsAt, row.pilotEndsAt, row.pilotOutcome, now),
     tags: row.tags,
     notes: row.notes,
     health: {

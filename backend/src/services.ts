@@ -53,7 +53,7 @@ export function createServices({ env, prisma }: { env: AppEnv; prisma: DbClient 
   const dashboardService = new DashboardService(prisma, projectsService, serversService, invoicesService, domainsService)
   const analyticsService = new AnalyticsService(prisma, projectsService, serversService, invoicesService)
   const billingService = new BillingService(prisma, env, notifier)
-  const remindersService = new RemindersService(prisma, serversService, domainsService, invoicesService, notifier, env.APP_URL)
+  const remindersService = new RemindersService(prisma, projectsService, serversService, domainsService, invoicesService, notifier, env.APP_URL)
 
   return {
     authService,

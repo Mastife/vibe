@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { DomainDto, InvoiceDto, ServerDto } from '@projects-hq/contracts'
+import type { DomainDto, InvoiceDto, ProjectDto, ServerDto } from '@projects-hq/contracts'
 
 import { collectReminders, formatReminders, reminderThreshold } from './reminders'
 
@@ -122,10 +122,45 @@ describe('formatReminders', () => {
     )
 
     const plain = text.replace(/[  ]/g, ' ')
-    expect(plain).toContain('Напоминание о платежах')
+    expect(plain).toContain('Напоминание о платежах и сроках')
     expect(plain).toContain('⚠️ BROFOOD: счёт «Абонплата»: оплата просрочена на 9 дней (срок 20 сентября) — 60 000 ₸')
     expect(plain).toContain('🌐 Домен navigo.help: продлить сегодня — 9 000 ₸')
     expect(plain).toContain('🖥 Сервер G-service: оплатить через 3 дня, до 2 октября — 3 750 ₸')
     expect(text).toContain('http://localhost:5173')
+  })
+})
+
+describe('pilot reminders', () => {
+  const pilotProject = (id: string, endsAt: string, outcome: 'CONTINUE' | 'DECLINE' | null = null) =>
+    ({
+      id,
+      name: 'Moika',
+      status: 'ACTIVE',
+      client: { id: 'c2', name: 'G-service' },
+      pilot: { startsAt: '2026-09-19', endsAt, outcome, state: 'ACTIVE', daysLeft: null },
+    }) as unknown as ProjectDto
+
+  test('nudge an undecided pilot before its end and once after, never a decided one', () => {
+    const reminders = collectReminders({
+      now,
+      projects: [
+        pilotProject('p1', '2026-10-02'),
+        pilotProject('p2', '2026-09-25'),
+        pilotProject('p3', '2026-10-01', 'CONTINUE'),
+        pilotProject('p4', '2026-12-01'),
+      ],
+      servers: [],
+      domains: [],
+      invoices: [],
+    })
+    expect(reminders.map((item) => [item.entityId, item.threshold])).toEqual([
+      ['p2', -1],
+      ['p1', 3],
+    ])
+
+    const text = formatReminders(reminders).replace(/[  ]/g, ' ')
+    expect(text).toContain('Напоминание о пилотах')
+    expect(text).toContain('🧪 Пилот Moika (G-service): заканчивается через 3 дня, 2 октября — обсудите с клиентом продолжение')
+    expect(text).toContain('⚠️ Пилот Moika (G-service): закончился 4 дня назад (25 сентября), решение клиента не отмечено')
   })
 })

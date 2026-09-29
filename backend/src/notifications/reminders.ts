@@ -1,20 +1,22 @@
-import type { DomainDto, InvoiceDto, ServerDto } from '@projects-hq/contracts'
+import type { DomainDto, InvoiceDto, ProjectDto, ServerDto } from '@projects-hq/contracts'
 
 import type { DbClient } from '../db'
 import type { DomainsService } from '../domains/service'
 import type { InvoicesService } from '../invoices/service'
+import type { ProjectsService } from '../projects/service'
 import { addDays, daysBetween, parseDateOnly, todayUtc } from '../lib/dates'
 import { formatDateLong, formatDays, formatMoney } from '../lib/text'
 import type { ServersService } from '../servers/service'
 import { escapeHtml, type Notifier } from './telegram'
 
-export type ReminderKind = 'SERVER_PAYMENT' | 'DOMAIN_RENEWAL' | 'INVOICE_DUE'
+export type ReminderKind = 'SERVER_PAYMENT' | 'DOMAIN_RENEWAL' | 'INVOICE_DUE' | 'PILOT_END'
 
 /** Days before the due date at which a reminder fires; -1 marks the one-off "overdue" reminder. */
 export const reminderThresholds: Record<ReminderKind, number[]> = {
   SERVER_PAYMENT: [7, 3, 1, 0],
   DOMAIN_RENEWAL: [30, 7, 1, 0],
   INVOICE_DUE: [3, 1, 0],
+  PILOT_END: [7, 3, 1, 0],
 }
 
 export type ReminderCandidate = {
@@ -38,6 +40,7 @@ export function reminderThreshold(daysLeft: number, thresholds: number[]): numbe
 }
 
 export function collectReminders(input: {
+  projects?: ProjectDto[]
   servers: ServerDto[]
   domains: DomainDto[]
   invoices: InvoiceDto[]
@@ -77,13 +80,31 @@ export function collectReminders(input: {
     )
   }
 
+  for (const project of input.projects ?? []) {
+    const pilot = project.pilot
+    // Only an undecided pilot needs a nudge; recording the outcome silences it.
+    if (project.status === 'ARCHIVED' || pilot.outcome || !pilot.endsAt) continue
+    const client = project.client ? ` (${project.client.name})` : ''
+    push('PILOT_END', project.id, pilot.endsAt, `Пилот ${project.name}${client}`, null)
+  }
+
   return candidates.sort((a, b) => a.daysLeft - b.daysLeft)
 }
 
-const kindIcon: Record<ReminderKind, string> = { SERVER_PAYMENT: '🖥', DOMAIN_RENEWAL: '🌐', INVOICE_DUE: '💰' }
+const kindIcon: Record<ReminderKind, string> = {
+  SERVER_PAYMENT: '🖥',
+  DOMAIN_RENEWAL: '🌐',
+  INVOICE_DUE: '💰',
+  PILOT_END: '🧪',
+}
 
 function when(candidate: ReminderCandidate): string {
   const date = formatDateLong(candidate.dueAt)
+  if (candidate.kind === 'PILOT_END') {
+    if (candidate.daysLeft < 0) return `закончился ${formatDays(-candidate.daysLeft)} назад (${date}), решение клиента не отмечено`
+    if (candidate.daysLeft === 0) return `последний день сегодня — пора принять решение о продолжении`
+    return `заканчивается через ${formatDays(candidate.daysLeft)}, ${date} — обсудите с клиентом продолжение`
+  }
   if (candidate.kind === 'INVOICE_DUE') {
     if (candidate.daysLeft < 0) return `оплата просрочена на ${formatDays(-candidate.daysLeft)} (срок ${date})`
     if (candidate.daysLeft === 0) return `клиент должен оплатить сегодня`
@@ -96,7 +117,8 @@ function when(candidate: ReminderCandidate): string {
 }
 
 export function formatReminders(candidates: ReminderCandidate[], appUrl?: string): string {
-  const lines = ['🔔 <b>Напоминание о платежах</b>']
+  const onlyPilots = candidates.every((candidate) => candidate.kind === 'PILOT_END')
+  const lines = [onlyPilots ? '🔔 <b>Напоминание о пилотах</b>' : '🔔 <b>Напоминание о платежах и сроках</b>']
   for (const candidate of candidates) {
     const icon = candidate.daysLeft < 0 ? '⚠️' : kindIcon[candidate.kind]
     const amount = candidate.amount ? ` — ${candidate.amount}` : ''
@@ -113,6 +135,7 @@ function reminderKey(item: { kind: string; entityId: string; dueAt: string; thre
 export class RemindersService {
   constructor(
     private readonly db: DbClient,
+    private readonly projects: ProjectsService,
     private readonly servers: ServersService,
     private readonly domains: DomainsService,
     private readonly invoices: InvoicesService,
@@ -123,12 +146,13 @@ export class RemindersService {
   /** Sends one Telegram message with every newly crossed threshold, then records them so each fires once. */
   async sendDue(now = new Date()): Promise<{ sent: number }> {
     if (!this.notifier) return { sent: 0 }
-    const [servers, domains, invoices] = await Promise.all([
+    const [projects, servers, domains, invoices] = await Promise.all([
+      this.projects.list(now),
       this.servers.list(now),
       this.domains.list(now),
       this.invoices.list({ status: 'SENT' }, now),
     ])
-    const candidates = collectReminders({ servers, domains, invoices, now })
+    const candidates = collectReminders({ projects, servers, domains, invoices, now })
     if (candidates.length === 0) return { sent: 0 }
 
     const logged = await this.db.reminderLog.findMany({

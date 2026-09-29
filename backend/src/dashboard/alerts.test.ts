@@ -20,6 +20,7 @@ function project(overrides: Partial<ProjectDto> & { id: string; name: string }):
     monthlyFee: null,
     autoInvoice: false,
     billingDay: 1,
+    pilot: { startsAt: null, endsAt: null, outcome: null, state: 'NONE', daysLeft: null },
     currency: 'RUB',
     tags: [],
     notes: null,
@@ -156,5 +157,33 @@ describe('buildAlerts', () => {
     ])
     expect(alerts[0]!.title).toBe('Счёт «Разработка» просрочен на 9 дней')
     expect(alerts[1]!.title).toBe('Счёт «Поддержка» к оплате через 3 дня')
+  })
+})
+
+describe('pilot alerts', () => {
+  test('warn a week before the pilot ends and escalate once it ends without a decision', () => {
+    const pilot = (endsAt: string, state: 'ENDING' | 'AWAITING_DECISION' | 'DECIDED', daysLeft: number) => ({
+      startsAt: '2026-09-19',
+      endsAt,
+      outcome: state === 'DECIDED' ? ('CONTINUE' as const) : null,
+      state,
+      daysLeft,
+    })
+    const alerts = buildAlerts({
+      now,
+      servers: [],
+      openInvoices: [],
+      projects: [
+        project({ id: 'p1', name: 'Moika', client: { id: 'c1', name: 'G-service' }, pilot: pilot('2026-10-02', 'ENDING', 3) }),
+        project({ id: 'p2', name: 'Handi', pilot: pilot('2026-09-25', 'AWAITING_DECISION', -4) }),
+        project({ id: 'p3', name: 'Zapis', pilot: pilot('2026-09-30', 'DECIDED', 1) }),
+      ],
+    })
+    const pilotAlerts = alerts.filter((alert) => alert.kind.startsWith('PILOT'))
+    expect(pilotAlerts.map((alert) => [alert.kind, alert.severity, alert.entityId])).toEqual([
+      ['PILOT_DECISION_OVERDUE', 'critical', 'p2'],
+      ['PILOT_ENDING', 'warning', 'p1'],
+    ])
+    expect(pilotAlerts[1]!.title).toBe('Пилот Moika (G-service) заканчивается через 3 дня')
   })
 })

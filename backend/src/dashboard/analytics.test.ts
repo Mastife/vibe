@@ -21,6 +21,7 @@ function project(overrides: Partial<ProjectDto> & { id: string; name: string }):
     monthlyFee: null,
     autoInvoice: false,
     billingDay: 1,
+    pilot: { startsAt: null, endsAt: null, outcome: null, state: 'NONE', daysLeft: null },
     currency: 'KZT',
     tags: [],
     notes: null,

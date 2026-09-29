@@ -65,6 +65,38 @@ export function buildAlerts({ projects, servers, openInvoices, domains = [], now
     }
   }
 
+  for (const project of liveProjects) {
+    const pilot = project.pilot
+    if (!pilot.endsAt || pilot.daysLeft === null) continue
+    const client = project.client ? ` (${project.client.name})` : ''
+    if (pilot.state === 'AWAITING_DECISION') {
+      alerts.push({
+        id: `pilot-${project.id}`,
+        severity: 'critical',
+        kind: 'PILOT_DECISION_OVERDUE',
+        title: `Пилот ${project.name}${client} закончился ${formatDays(-pilot.daysLeft)} назад — решение не принято`,
+        description: `Пилот до ${pilot.endsAt}. Отметьте решение клиента в карточке проекта.`,
+        entityType: 'project',
+        entityId: project.id,
+        dueAt: pilot.endsAt,
+      })
+    } else if (pilot.state === 'ENDING') {
+      alerts.push({
+        id: `pilot-${project.id}`,
+        severity: 'warning',
+        kind: 'PILOT_ENDING',
+        title:
+          pilot.daysLeft === 0
+            ? `Пилот ${project.name}${client} заканчивается сегодня`
+            : `Пилот ${project.name}${client} заканчивается через ${formatDays(pilot.daysLeft)}`,
+        description: `Пилот до ${pilot.endsAt}. Пора обсудить с клиентом продолжение.`,
+        entityType: 'project',
+        entityId: project.id,
+        dueAt: pilot.endsAt,
+      })
+    }
+  }
+
   const unmonitored = liveProjects.filter((project) => !project.productionUrl && !project.healthCheckUrl)
   if (unmonitored.length > 0) {
     const names = unmonitored.slice(0, 5).map((project) => project.name)

@@ -36,6 +36,12 @@ model AuthSession {
   @@map("auth_sessions")
 }
 
+/// What the client decided after the pilot; null while the decision is still open.
+enum PilotOutcome {
+  CONTINUE
+  DECLINE
+}
+
 enum ProjectStatus {
   DEVELOPMENT
   ACTIVE
@@ -141,6 +147,10 @@ model Project {
   /// Issue a monthly subscription invoice to the client on `billingDay` (1-28).
   autoInvoice      Boolean          @default(false) @map("auto_invoice")
   billingDay       Int              @default(1) @map("billing_day")
+  /// Pilot period agreed with the client; reminders fire before `pilotEndsAt` until an outcome is set.
+  pilotStartsAt    DateTime?        @map("pilot_starts_at") @db.Date
+  pilotEndsAt      DateTime?        @map("pilot_ends_at") @db.Date
+  pilotOutcome     PilotOutcome?    @map("pilot_outcome")
   lastHealthStatus HealthStatus     @default(UNKNOWN) @map("last_health_status")
   lastCheckedAt    DateTime?        @map("last_checked_at")
   lastLatencyMs    Int?             @map("last_latency_ms")

@@ -8,7 +8,7 @@ import { ConfirmDialog } from '@/components/confirm-dialog'
 import { PageHeader } from '@/components/page-header'
 import { HealthHistoryChart } from '@/components/projects/health-history-chart'
 import { ProjectFormDialog } from '@/components/projects/project-form-dialog'
-import { HealthBadge, InvoiceStatusBadge, ProjectStatusBadge } from '@/components/status-badges'
+import { HealthBadge, InvoiceStatusBadge, PilotBadge, ProjectStatusBadge } from '@/components/status-badges'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -25,6 +25,7 @@ import {
   formatPercent,
   formatRelative,
 } from '@/lib/format'
+import { pilotOutcomeLabels } from '@/lib/labels'
 import { useCheckProject, useClients, useDeleteProject, useProject, useServers } from '@/lib/queries'
 
 function daysUntil(iso: string | null): number | null {
@@ -122,6 +123,7 @@ export function ProjectDetailPage() {
 
       <div className="flex flex-wrap items-center gap-2">
         <ProjectStatusBadge status={project.status} />
+        <PilotBadge pilot={project.pilot} />
         <HealthBadge status={project.health.status} />
         {project.tags.map((tag) => (
           <Badge key={tag} variant="outline">
@@ -195,6 +197,11 @@ export function ProjectDetailPage() {
             </Fact>
             <Fact label="Плата клиента">
               {project.monthlyFee === null ? '—' : `${formatMoney(project.monthlyFee, project.currency)} / мес`}
+            </Fact>
+            <Fact label="Пилот">
+              {project.pilot.endsAt
+                ? `${project.pilot.startsAt ? `${formatDate(project.pilot.startsAt)} – ` : 'до '}${formatDate(project.pilot.endsAt)}${project.pilot.outcome ? ` · ${pilotOutcomeLabels[project.pilot.outcome].toLowerCase()}` : ''}`
+                : '—'}
             </Fact>
             <Fact label="Slug">{project.slug}</Fact>
             <Fact label="Продакшен">{project.productionUrl ? <ExternalLink href={project.productionUrl} /> : '—'}</Fact>

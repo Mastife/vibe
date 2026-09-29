@@ -421,4 +421,49 @@ maybeDescribe('projects hq API integration', () => {
     expect(list.body.domains).toHaveLength(1)
     expect((await api('DELETE', `/api/domains/${domainId}`, undefined, token)).status).toBe(204)
   })
+
+  test('tracks a client pilot and reminds about the decision until it is recorded', async () => {
+    const token = await registerAdmin()
+    const today = todayUtc()
+    const client = await api('POST', '/api/clients', { name: 'G-service' }, token)
+
+    const backwards = await api(
+      'POST',
+      '/api/projects',
+      { name: 'Moika', pilotStartsAt: toDateOnly(today), pilotEndsAt: toDateOnly(addDays(today, -1)) },
+      token,
+    )
+    expect(backwards.status).toBe(400)
+
+    const created = await api(
+      'POST',
+      '/api/projects',
+      {
+        name: 'Moika',
+        clientId: client.body.client.id,
+        pilotStartsAt: toDateOnly(addDays(today, -27)),
+        pilotEndsAt: toDateOnly(addDays(today, 3)),
+      },
+      token,
+    )
+    expect(created.status).toBe(201)
+    expect(created.body.project.pilot).toMatchObject({ state: 'ENDING', daysLeft: 3, outcome: null })
+    const projectId = created.body.project.id as string
+
+    const dashboard = await api('GET', '/api/dashboard', undefined, token)
+    expect(dashboard.body.alerts.map((alert: { kind: string }) => alert.kind)).toContain('PILOT_ENDING')
+
+    expect(await services.remindersService.sendDue()).toEqual({ sent: 1 })
+    expect(telegramMessages.at(-1)).toContain('Пилот Moika (G-service): заканчивается через 3 дня')
+    expect(await services.remindersService.sendDue()).toEqual({ sent: 0 })
+
+    const decided = await api('PATCH', `/api/projects/${projectId}`, { pilotOutcome: 'CONTINUE' }, token)
+    expect(decided.body.project.pilot).toMatchObject({ state: 'DECIDED', outcome: 'CONTINUE' })
+    await api('PATCH', `/api/projects/${projectId}`, { pilotEndsAt: toDateOnly(addDays(today, 1)) }, token)
+    expect(await services.remindersService.sendDue()).toEqual({ sent: 0 })
+
+    const reopened = await api('PATCH', `/api/projects/${projectId}`, { pilotOutcome: null }, token)
+    expect(reopened.body.project.pilot).toMatchObject({ state: 'ENDING', daysLeft: 1 })
+    expect(await services.remindersService.sendDue()).toEqual({ sent: 1 })
+  })
 })
