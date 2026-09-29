@@ -6,8 +6,9 @@ export const repositoryRoot = resolve(fileURLToPath(new URL('..', import.meta.ur
 export const repositoryHash = createHash('sha256').update(repositoryRoot).digest('hex').slice(0, 12)
 export const composeProjectName =
   process.env.COMPOSE_PROJECT_NAME ?? `projects-hq-${repositoryHash}`
+// Kept below the Linux ephemeral port range (32768+) so CI runners' outbound connections cannot collide.
 export const defaultPostgresTestPort =
-  process.env.POSTGRES_TEST_PORT ?? String(30000 + (Number.parseInt(repositoryHash.slice(0, 6), 16) % 20000))
+  process.env.POSTGRES_TEST_PORT ?? String(20000 + (Number.parseInt(repositoryHash.slice(0, 6), 16) % 5000))
 
 export function defaultTestDatabaseUrl(port = defaultPostgresTestPort) {
   return `postgresql://superuser:superpassword@localhost:${port}/projects_hq_test?schema=public`

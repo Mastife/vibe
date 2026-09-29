@@ -67,7 +67,7 @@ If `docker compose version` or `docker info` fails, install/start Docker first b
 The web E2E flow:
 
 - starts `docker compose up -d postgres_test` unless `E2E_SKIP_DOCKER=1` is set;
-- chooses repository-derived ports by default, and automatically moves to the nearest free ports if those are already occupied;
+- chooses repository-derived ports by default (PostgreSQL 20000-24999, backend 25000-29999, Vite 30000-32699, all below the Linux ephemeral range so CI runners' outbound connections cannot collide with them), and automatically moves to the nearest free ports if those are already occupied;
 - generates the Prisma client and applies migrations;
 - uses `TEST_DATABASE_URL` as the primary database URL, then passes that value to the backend as `DATABASE_URL` inside the test run;
 - starts the backend on `E2E_BACKEND_PORT`, which defaults to a repository-derived port;

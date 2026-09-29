@@ -8,11 +8,11 @@ export const repositoryHash = createHash('sha256').update(repositoryRoot).digest
 export const composeProjectName =
   process.env.COMPOSE_PROJECT_NAME ?? `projects-hq-${repositoryHash}`
 export const defaultPostgresTestPort =
-  process.env.POSTGRES_TEST_PORT ?? String(30000 + (Number.parseInt(repositoryHash.slice(0, 6), 16) % 20000))
+  process.env.POSTGRES_TEST_PORT ?? String(20000 + (Number.parseInt(repositoryHash.slice(0, 6), 16) % 5000))
 export const defaultBackendPort =
-  process.env.E2E_BACKEND_PORT ?? String(50000 + (Number.parseInt(repositoryHash.slice(6, 12), 16) % 5000))
+  process.env.E2E_BACKEND_PORT ?? String(25000 + (Number.parseInt(repositoryHash.slice(6, 12), 16) % 5000))
 export const defaultWebPort =
-  process.env.E2E_WEB_PORT ?? String(55000 + (Number.parseInt(repositoryHash.slice(0, 6), 16) % 5000))
+  process.env.E2E_WEB_PORT ?? String(30000 + (Number.parseInt(repositoryHash.slice(0, 6), 16) % 2700))
 export const defaultDatabaseUrl = `postgresql://superuser:superpassword@localhost:${defaultPostgresTestPort}/projects_hq_test?schema=public`
 
 export function composeEnv(extra: NodeJS.ProcessEnv = {}) {
