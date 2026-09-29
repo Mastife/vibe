@@ -295,3 +295,25 @@ function json(body: unknown, status: number) {
     },
   })
 }
+
+test('ApiClient explains network failures and a stopped API in plain words', async () => {
+  const client = new ApiClient({
+    getAccessToken: () => null,
+    setAccessToken: () => undefined,
+  })
+
+  globalThis.fetch = async () => {
+    throw new TypeError('Failed to fetch')
+  }
+  await expect(client.authStatus()).rejects.toMatchObject({
+    status: 0,
+    code: 'NETWORK_ERROR',
+    message: expect.stringContaining('Нет связи с сервером панели'),
+  })
+
+  globalThis.fetch = async () => new Response('Bad Gateway', { status: 502 })
+  await expect(client.authStatus()).rejects.toMatchObject({
+    status: 502,
+    message: expect.stringContaining('Сервер панели сейчас не отвечает'),
+  })
+})

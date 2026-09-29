@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
-    "test": "bun test tests",
+    "test": "VITE_API_URL=http://localhost:3000 bun test tests",
     "lint": "eslint .",
     "preview": "vite preview",
     "e2e": "playwright test",
