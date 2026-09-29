@@ -6,6 +6,7 @@ import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import App from './App'
 import { AuthProvider } from './lib/auth'
+import { watchForNewVersion } from './lib/version-watch'
 import './index.css'
 
 const queryClient = new QueryClient({
@@ -29,3 +30,5 @@ createRoot(document.getElementById('root')!).render(
     </QueryClientProvider>
   </StrictMode>,
 )
+
+watchForNewVersion()
