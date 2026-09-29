@@ -14,6 +14,7 @@ import { errorResponse, handleError, validationErrorHook } from './http/errors'
 import { createInvoiceRoutes } from './invoices/routes'
 import { createProjectRoutes } from './projects/routes'
 import { createServerRoutes } from './servers/routes'
+import { createTagRoutes } from './tags/routes'
 import { createServices, type Services } from './services'
 
 type CreateAppOptions = {
@@ -53,6 +54,7 @@ export function createApp({ env, prisma, services = createServices({ env, prisma
     c.set('dashboardService', services.dashboardService)
     c.set('analyticsService', services.analyticsService)
     c.set('domainsService', services.domainsService)
+    c.set('tagsService', services.tagsService)
     await next()
   })
 
@@ -75,6 +77,7 @@ export function createApp({ env, prisma, services = createServices({ env, prisma
   app.route('/api/clients', createClientRoutes())
   app.route('/api/invoices', createInvoiceRoutes())
   app.route('/api/domains', createDomainRoutes())
+  app.route('/api/tags', createTagRoutes())
   app.route('/api/dashboard', createDashboardRoutes())
   app.route('/api/health', createHealthRoutes())
 

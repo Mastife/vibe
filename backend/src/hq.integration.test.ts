@@ -113,7 +113,7 @@ maybeDescribe('projects hq API integration', () => {
   })
 
   test('requires a valid session on every hq route', async () => {
-    for (const path of ['/api/projects', '/api/servers', '/api/clients', '/api/invoices', '/api/domains', '/api/dashboard']) {
+    for (const path of ['/api/projects', '/api/servers', '/api/clients', '/api/invoices', '/api/domains', '/api/tags', '/api/dashboard']) {
       const anonymous = await api('GET', path)
       expect(anonymous.status).toBe(401)
       expect(anonymous.body.error.code).toBe('UNAUTHORIZED')
@@ -501,5 +501,41 @@ maybeDescribe('projects hq API integration', () => {
     const reopened = await api('PATCH', `/api/projects/${projectId}`, { pilotOutcome: null }, token)
     expect(reopened.body.project.pilot).toMatchObject({ state: 'ENDING', daysLeft: 1 })
     expect(await services.remindersService.sendDue()).toEqual({ sent: 1 })
+  })
+
+  test('lists, renames, and removes tags across every project', async () => {
+    const token = await registerAdmin()
+    await api('POST', '/api/projects', { name: 'Handi', tags: ['python', 'телеграм-бот', 'prod'] }, token)
+    await api('POST', '/api/projects', { name: 'Moika', tags: ['react', 'prod'] }, token)
+    await api('POST', '/api/projects', { name: 'Zapis', tags: ['bot', 'react'] }, token)
+
+    const listed = await api('GET', '/api/tags', undefined, token)
+    expect(listed.body.tags).toEqual([
+      { name: 'prod', count: 2 },
+      { name: 'react', count: 2 },
+      { name: 'bot', count: 1 },
+      { name: 'python', count: 1 },
+      { name: 'телеграм-бот', count: 1 },
+    ])
+
+    // Renaming onto an existing tag merges without duplicates and keeps the original order.
+    const renamed = await api('PATCH', `/api/tags/${encodeURIComponent('телеграм-бот')}`, { name: 'bot' }, token)
+    expect(renamed.body).toEqual({ updated: 1 })
+    const merged = await api('PATCH', '/api/tags/react', { name: 'bot' }, token)
+    expect(merged.body).toEqual({ updated: 2 })
+
+    const projects = await api('GET', '/api/projects', undefined, token)
+    const tagsByName = Object.fromEntries(
+      projects.body.projects.map((project: { name: string; tags: string[] }) => [project.name, project.tags]),
+    )
+    expect(tagsByName).toEqual({ Handi: ['python', 'bot', 'prod'], Moika: ['bot', 'prod'], Zapis: ['bot'] })
+
+    expect((await api('DELETE', '/api/tags/prod', undefined, token)).body).toEqual({ updated: 2 })
+    expect((await api('DELETE', '/api/tags/prod', undefined, token)).status).toBe(404)
+    expect((await api('PATCH', '/api/tags/bot', { name: '  ' }, token)).status).toBe(400)
+    expect((await api('GET', '/api/tags', undefined, token)).body.tags).toEqual([
+      { name: 'bot', count: 3 },
+      { name: 'python', count: 1 },
+    ])
   })
 })

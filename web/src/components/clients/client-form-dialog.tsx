@@ -30,17 +30,25 @@ type ClientFormDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   client?: ClientDto
+  /** Called with the saved client, e.g. so a parent form can select a client created on the fly. */
+  onSaved?: (client: ClientDto) => void
 }
 
-export function ClientFormDialog({ open, onOpenChange, client }: ClientFormDialogProps) {
+export function ClientFormDialog({ open, onOpenChange, client, onSaved }: ClientFormDialogProps) {
   return (
     <EntityDialog open={open} onOpenChange={onOpenChange} title={client ? 'Изменить клиента' : 'Новый клиент'}>
-      <ClientForm client={client} onDone={() => onOpenChange(false)} />
+      <ClientForm
+        client={client}
+        onDone={(saved) => {
+          onSaved?.(saved)
+          onOpenChange(false)
+        }}
+      />
     </EntityDialog>
   )
 }
 
-function ClientForm({ client, onDone }: { client?: ClientDto; onDone: () => void }) {
+function ClientForm({ client, onDone }: { client?: ClientDto; onDone: (saved: ClientDto) => void }) {
   const id = useId()
   const createClient = useCreateClient()
   const updateClient = useUpdateClient()
@@ -71,14 +79,15 @@ function ClientForm({ client, onDone }: { client?: ClientDto; onDone: () => void
       setFieldErrors({})
 
       try {
+        let saved: ClientDto
         if (client) {
-          await updateClient.mutateAsync({ id: client.id, payload: result.data })
+          saved = (await updateClient.mutateAsync({ id: client.id, payload: result.data })).client
           toast.success('Клиент обновлён')
         } else {
-          await createClient.mutateAsync(clientCreateSchema.parse(value))
+          saved = (await createClient.mutateAsync(clientCreateSchema.parse(value))).client
           toast.success('Клиент добавлен')
         }
-        onDone()
+        onDone(saved)
       } catch (caughtError) {
         setFormError(caughtError instanceof ApiRequestError ? caughtError.message : 'Не удалось сохранить клиента')
       }

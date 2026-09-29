@@ -52,6 +52,7 @@ test('first admin sets up the panel, tracks a project, a server payment, and sig
   await page.getByLabel('Название', { exact: true }).fill(projectName)
   await page.getByLabel('Клиент', { exact: true }).selectOption({ label: 'ООО Ромашка' })
   await page.getByLabel('Сервер', { exact: true }).selectOption({ label: 'vps-1' })
+  await page.getByRole('tab', { name: 'Мониторинг' }).click()
   await page.getByLabel('Адрес продакшена', { exact: true }).fill(`${backendUrl}/health`)
   await page.getByRole('button', { name: 'Создать проект' }).click()
   await expect(page.getByRole('link', { name: projectName })).toBeVisible()

@@ -15,6 +15,7 @@ import { createNotifierFromEnv, type Notifier } from './notifications/telegram'
 import { ProjectsService } from './projects/service'
 import { ServersService } from './servers/service'
 import { createStorageServiceFromEnv, type StorageService } from './storage/service'
+import { TagsService } from './tags/service'
 
 export type Services = {
   authService: AuthService
@@ -27,6 +28,7 @@ export type Services = {
   dashboardService: DashboardService
   analyticsService: AnalyticsService
   domainsService: DomainsService
+  tagsService: TagsService
   billingService: BillingService
   remindersService: RemindersService
   notifier: Notifier | null
@@ -52,6 +54,7 @@ export function createServices({ env, prisma }: { env: AppEnv; prisma: DbClient 
   const domainsService = new DomainsService(prisma, options.fetchImpl ?? fetch)
   const dashboardService = new DashboardService(prisma, projectsService, serversService, invoicesService, domainsService)
   const analyticsService = new AnalyticsService(prisma, projectsService, serversService, invoicesService)
+  const tagsService = new TagsService(prisma)
   const billingService = new BillingService(prisma, env, notifier)
   const remindersService = new RemindersService(prisma, projectsService, serversService, domainsService, invoicesService, notifier, env.APP_URL)
 
@@ -66,6 +69,7 @@ export function createServices({ env, prisma }: { env: AppEnv; prisma: DbClient 
     dashboardService,
     analyticsService,
     domainsService,
+    tagsService,
     billingService,
     remindersService,
     notifier,
