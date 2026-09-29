@@ -144,7 +144,7 @@ maybeDescribe('projects hq API integration', () => {
     expect(server.body.server).toMatchObject({
       name: 'vps-1',
       monthlyCost: 1500,
-      currency: 'RUB',
+      currency: 'KZT',
       paidUntil: inThreeDays,
       payment: { state: 'DUE_SOON', daysLeft: 3 },
     })
@@ -211,13 +211,13 @@ maybeDescribe('projects hq API integration', () => {
       'SERVER_PAYMENT_DUE',
       'PROJECTS_UNMONITORED',
     ])
-    expect(dashboard.body.invoices).toMatchObject({ outstanding: [{ currency: 'RUB', amount: 4500 }], overdueCount: 1 })
-    expect(dashboard.body.servers).toMatchObject({ total: 1, dueSoon: 1, monthlyCost: [{ currency: 'RUB', amount: 1500 }] })
+    expect(dashboard.body.invoices).toMatchObject({ outstanding: [{ currency: 'KZT', amount: 4500 }], overdueCount: 1 })
+    expect(dashboard.body.servers).toMatchObject({ total: 1, dueSoon: 1, monthlyCost: [{ currency: 'KZT', amount: 1500 }] })
     expect(dashboard.body.monitoredProjects.map((entry: { id: string }) => entry.id)).toEqual([projectId])
     expect(dashboard.body.upcomingServerPayments[0].id).toBe(serverId)
 
     const clientsWithDebt = await api('GET', '/api/clients', undefined, token)
-    expect(clientsWithDebt.body.clients[0]).toMatchObject({ projectCount: 1, outstanding: [{ currency: 'RUB', amount: 4500 }] })
+    expect(clientsWithDebt.body.clients[0]).toMatchObject({ projectCount: 1, outstanding: [{ currency: 'KZT', amount: 4500 }] })
 
     const payment = await api(
       'POST',
@@ -231,7 +231,7 @@ maybeDescribe('projects hq API integration', () => {
     expect(payment.body.payments).toHaveLength(1)
     expect(payment.body.payments[0]).toMatchObject({
       amount: 3000,
-      currency: 'RUB',
+      currency: 'KZT',
       periodStart: inThreeDays,
       periodEnd: expectedPaidUntil,
       note: 'Карта',
@@ -254,7 +254,7 @@ maybeDescribe('projects hq API integration', () => {
     expect(afterPayment.body.invoices).toMatchObject({
       outstanding: [],
       overdueCount: 0,
-      paidLast30Days: [{ currency: 'RUB', amount: 4500 }],
+      paidLast30Days: [{ currency: 'KZT', amount: 4500 }],
     })
 
     const blockedDelete = await api('DELETE', `/api/clients/${clientId}`, undefined, token)
