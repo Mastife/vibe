@@ -73,6 +73,8 @@ const envSchema = z.object({
   TELEGRAM_BOT_TOKEN: optionalStringSchema,
   TELEGRAM_CHAT_ID: optionalStringSchema,
   DAILY_DIGEST_HOUR_UTC: z.coerce.number().int().min(0).max(23).default(6),
+  // Payment term of automatically issued subscription invoices.
+  INVOICE_DUE_DAYS: z.coerce.number().int().min(0).max(90).default(10),
 }).superRefine((env, ctx) => {
   validateJwtSecret(env, ctx)
   validateCorsOrigins(env, ctx)

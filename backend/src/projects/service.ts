@@ -77,6 +77,7 @@ export class ProjectsService {
   }
 
   async create(payload: ProjectCreatePayload): Promise<ProjectDto> {
+    assertAutoInvoiceReady(payload.autoInvoice, payload.clientId ?? null, payload.monthlyFee ?? null)
     const slug = await this.resolveSlug(payload.slug ?? null, payload.name)
     const row = await this.db.project
       .create({
@@ -92,6 +93,8 @@ export class ProjectsService {
           serverId: payload.serverId ?? null,
           monthlyFee: payload.monthlyFee ?? null,
           currency: payload.currency,
+          autoInvoice: payload.autoInvoice,
+          billingDay: payload.billingDay,
           tags: payload.tags,
           notes: payload.notes ?? null,
         },
@@ -106,6 +109,19 @@ export class ProjectsService {
     if (payload.slug) {
       const existing = await this.db.project.findUnique({ where: { slug: payload.slug }, select: { id: true } })
       if (existing && existing.id !== id) throw slugConflict()
+    }
+    if (payload.autoInvoice || payload.clientId === null || payload.monthlyFee === null) {
+      const current = await this.db.project.findUnique({
+        where: { id },
+        select: { autoInvoice: true, clientId: true, monthlyFee: true },
+      })
+      if (current) {
+        assertAutoInvoiceReady(
+          payload.autoInvoice ?? current.autoInvoice,
+          payload.clientId === undefined ? current.clientId : payload.clientId,
+          payload.monthlyFee === undefined ? decimalToNumber(current.monthlyFee, true) : payload.monthlyFee,
+        )
+      }
     }
 
     const row = await this.db.project
@@ -123,6 +139,8 @@ export class ProjectsService {
           serverId: payload.serverId,
           monthlyFee: payload.monthlyFee,
           currency: payload.currency,
+          autoInvoice: payload.autoInvoice,
+          billingDay: payload.billingDay,
           tags: payload.tags,
           notes: payload.notes,
         },
@@ -188,6 +206,14 @@ function uptimePercent(counts: OkCounts | undefined): number | null {
   return Math.round((counts.ok / counts.total) * 1000) / 10
 }
 
+/** Auto-invoicing bills the project's client its monthly fee, so both must be present while it is on. */
+function assertAutoInvoiceReady(autoInvoice: boolean | undefined, clientId: string | null, monthlyFee: number | null) {
+  if (!autoInvoice) return
+  if (!clientId || !monthlyFee) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'Для автоматических счетов укажите клиента и ежемесячную плату')
+  }
+}
+
 export function toProjectDto(row: ProjectRow, stats?: UptimeStats): ProjectDto {
   return {
     id: row.id,
@@ -204,6 +230,8 @@ export function toProjectDto(row: ProjectRow, stats?: UptimeStats): ProjectDto {
     server: row.server,
     monthlyFee: decimalToNumber(row.monthlyFee, true),
     currency: row.currency,
+    autoInvoice: row.autoInvoice,
+    billingDay: row.billingDay,
     tags: row.tags,
     notes: row.notes,
     health: {

@@ -14,9 +14,10 @@ import { FormAlert } from '@/components/form-alert'
 import { FormField } from '@/components/form-field'
 import { Button } from '@/components/ui/button'
 import { DialogClose, DialogFooter } from '@/components/ui/dialog'
-import { FieldGroup } from '@/components/ui/field'
+import { Field, FieldContent, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
+import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { ApiRequestError } from '@/lib/api'
 import { fieldNameGuard, parseTags, toFieldErrors, type FieldErrorMap } from '@/lib/form'
@@ -34,6 +35,8 @@ type ProjectDraft = {
   repoUrl: string
   monthlyFee: string
   currency: string
+  autoInvoice: boolean
+  billingDay: string
   tags: string
   description: string
   notes: string
@@ -52,6 +55,8 @@ const fieldNames = [
   'repoUrl',
   'monthlyFee',
   'currency',
+  'autoInvoice',
+  'billingDay',
   'tags',
   'description',
   'notes',
@@ -59,7 +64,7 @@ const fieldNames = [
 
 const isFieldName = fieldNameGuard<FieldName>(fieldNames)
 
-type TextSpec = { name: FieldName; label: string; placeholder?: string; description?: string; inputMode?: 'decimal' }
+type TextSpec = { name: Exclude<FieldName, 'autoInvoice'>; label: string; placeholder?: string; description?: string; inputMode?: 'decimal' }
 
 const textFields: TextSpec[] = [
   { name: 'productionUrl', label: 'Адрес продакшена', placeholder: 'https://app.example.com', description: 'Проверяется каждые несколько минут, если не задан отдельный health-check URL.' },
@@ -81,6 +86,8 @@ function toDraft(project: ProjectDto | undefined): ProjectDraft {
     repoUrl: project?.repoUrl ?? '',
     monthlyFee: project?.monthlyFee === null || project?.monthlyFee === undefined ? '' : String(project.monthlyFee),
     currency: 'KZT',
+    autoInvoice: project?.autoInvoice ?? false,
+    billingDay: String(project?.billingDay ?? 1),
     tags: project?.tags.join(', ') ?? '',
     description: project?.description ?? '',
     notes: project?.notes ?? '',
@@ -302,6 +309,52 @@ function ProjectForm({
               )}
             />
           ))}
+        </div>
+        <div className="grid gap-4 rounded-lg border p-4 sm:grid-cols-[1fr_10rem]">
+          <form.Field
+            name="autoInvoice"
+            children={(field) => (
+              <Field orientation="horizontal" data-invalid={Boolean(fieldErrors.autoInvoice?.length)}>
+                <Switch
+                  id={`${id}-autoInvoice`}
+                  checked={field.state.value}
+                  onCheckedChange={(checked) => {
+                    field.handleChange(checked)
+                    clearError('autoInvoice')
+                  }}
+                />
+                <FieldContent>
+                  <FieldLabel htmlFor={`${id}-autoInvoice`}>Выставлять счёт автоматически</FieldLabel>
+                  <FieldDescription>
+                    Каждый месяц в выбранный день клиенту выставляется счёт на ежемесячную плату, в Telegram приходит
+                    уведомление. Нужны клиент и сумма.
+                  </FieldDescription>
+                  <FieldError errors={fieldErrors.autoInvoice} />
+                </FieldContent>
+              </Field>
+            )}
+          />
+          <form.Field
+            name="billingDay"
+            children={(field) => (
+              <FormField id={`${id}-billingDay`} label="День месяца" errors={fieldErrors.billingDay}>
+                <Input
+                  id={`${id}-billingDay`}
+                  type="number"
+                  min={1}
+                  max={28}
+                  inputMode="numeric"
+                  value={field.state.value}
+                  aria-invalid={Boolean(fieldErrors.billingDay?.length)}
+                  onBlur={field.handleBlur}
+                  onChange={(event) => {
+                    field.handleChange(event.target.value)
+                    clearError('billingDay')
+                  }}
+                />
+              </FormField>
+            )}
+          />
         </div>
         <form.Field
           name="description"

@@ -68,6 +68,8 @@ export const projectSchema = z.object({
   server: relatedRefSchema.nullable(),
   monthlyFee: z.number().nullable(),
   currency: z.string(),
+  autoInvoice: z.boolean(),
+  billingDay: z.number().int(),
   tags: z.array(z.string()),
   notes: z.string().nullable(),
   health: projectHealthSchema,
@@ -75,6 +77,13 @@ export const projectSchema = z.object({
   createdAt: isoDateTimeSchema,
   updatedAt: isoDateTimeSchema,
 })
+
+/** Day of month the subscription invoice goes out; capped at 28 so every month has it. */
+export const billingDaySchema = z.coerce
+  .number()
+  .int()
+  .min(1, 'День от 1 до 28')
+  .max(28, 'День от 1 до 28')
 
 const projectFieldsSchema = z.object({
   name: requiredText(120),
@@ -88,6 +97,9 @@ const projectFieldsSchema = z.object({
   serverId: optionalId(),
   monthlyFee: optionalMoneySchema,
   currency: currencySchema,
+  /** Monthly subscription invoice to the client, issued on `billingDay`; needs a client and a monthly fee. */
+  autoInvoice: z.boolean(),
+  billingDay: billingDaySchema,
   tags: tagsSchema,
   notes: optionalText(5000),
 })
@@ -95,6 +107,8 @@ const projectFieldsSchema = z.object({
 export const projectCreateSchema = projectFieldsSchema.extend({
   status: projectStatusSchema.default('ACTIVE'),
   currency: currencySchema.default('KZT'),
+  autoInvoice: z.boolean().default(false),
+  billingDay: billingDaySchema.default(1),
   tags: tagsSchema.default([]),
 })
 

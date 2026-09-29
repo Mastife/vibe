@@ -138,9 +138,11 @@ export function InvoicesPage() {
                     <TableCell>
                       <div className="grid gap-0.5">
                         <Typography variant="bodySmMedium">{invoice.title}</Typography>
-                        {invoice.projectName && (
+                        {(invoice.projectName || invoice.autoPeriod) && (
                           <Typography variant="caption" tone="muted">
-                            {invoice.projectName}
+                            {[invoice.projectName, invoice.autoPeriod ? 'выставлен автоматически' : null]
+                              .filter(Boolean)
+                              .join(' · ')}
                           </Typography>
                         )}
                       </div>

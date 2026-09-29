@@ -43,6 +43,8 @@ maybeDescribe('projects hq API integration', () => {
   const app = createApp({ env, prisma, services })
 
   beforeEach(async () => {
+    await prisma.reminderLog.deleteMany()
+    await prisma.domain.deleteMany()
     await prisma.invoice.deleteMany()
     await prisma.healthCheckRun.deleteMany()
     await prisma.project.deleteMany()
@@ -111,7 +113,7 @@ maybeDescribe('projects hq API integration', () => {
   })
 
   test('requires a valid session on every hq route', async () => {
-    for (const path of ['/api/projects', '/api/servers', '/api/clients', '/api/invoices', '/api/dashboard']) {
+    for (const path of ['/api/projects', '/api/servers', '/api/clients', '/api/invoices', '/api/domains', '/api/dashboard']) {
       const anonymous = await api('GET', path)
       expect(anonymous.status).toBe(401)
       expect(anonymous.body.error.code).toBe('UNAUTHORIZED')
@@ -326,5 +328,97 @@ maybeDescribe('projects hq API integration', () => {
     expect(analytics.body.health.projects[0]).toMatchObject({ id: projectId, status: 'UP', uptime24h: 50 })
     expect(analytics.body.health.projects[0].daily.at(-1)).toBe(50)
     expect(analytics.body.health.statusCounts).toEqual({ up: 1, down: 0, unknown: 0 })
+  })
+
+  test('auto-invoices a subscription once per month and requires a client and a fee', async () => {
+    const token = await registerAdmin()
+    const today = todayUtc()
+    const period = toDateOnly(today).slice(0, 7)
+    const client = await api('POST', '/api/clients', { name: 'BROFOOD' }, token)
+    const clientId = client.body.client.id as string
+
+    const incomplete = await api('POST', '/api/projects', { name: 'Handi', autoInvoice: true }, token)
+    expect(incomplete.status).toBe(400)
+    expect(incomplete.body.error.message).toContain('укажите клиента')
+
+    const created = await api(
+      'POST',
+      '/api/projects',
+      { name: 'Handi', clientId, monthlyFee: 60000, autoInvoice: true, billingDay: Math.min(today.getUTCDate(), 28) },
+      token,
+    )
+    expect(created.status).toBe(201)
+    expect(created.body.project).toMatchObject({ autoInvoice: true, currency: 'KZT' })
+    const projectId = created.body.project.id as string
+
+    expect(await services.billingService.issueDue()).toEqual({ issued: 1 })
+    expect(await services.billingService.issueDue()).toEqual({ issued: 0 })
+
+    const invoices = await api('GET', `/api/invoices?projectId=${projectId}`, undefined, token)
+    expect(invoices.body.invoices).toHaveLength(1)
+    expect(invoices.body.invoices[0]).toMatchObject({
+      clientId,
+      amount: 60000,
+      currency: 'KZT',
+      status: 'SENT',
+      autoPeriod: period,
+      issuedAt: toDateOnly(today),
+      dueAt: toDateOnly(addDays(today, 10)),
+    })
+    expect(telegramMessages).toHaveLength(1)
+    expect(telegramMessages[0]).toContain('Выставлены счета по абонплате')
+
+    const detached = await api('PATCH', `/api/projects/${projectId}`, { clientId: null }, token)
+    expect(detached.status).toBe(400)
+    const disabled = await api('PATCH', `/api/projects/${projectId}`, { autoInvoice: false, clientId: null }, token)
+    expect(disabled.status).toBe(200)
+  })
+
+  test('tracks domains and sends each payment reminder once per threshold', async () => {
+    const token = await registerAdmin()
+    const today = todayUtc()
+
+    const domain = await api(
+      'POST',
+      '/api/domains',
+      { name: 'NaviGo.help', expiresAt: toDateOnly(addDays(today, 5)), renewalCost: 9000 },
+      token,
+    )
+    expect(domain.status).toBe(201)
+    expect(domain.body.domain).toMatchObject({
+      name: 'navigo.help',
+      currency: 'KZT',
+      renewal: { state: 'DUE_SOON', daysLeft: 5 },
+    })
+    const domainId = domain.body.domain.id as string
+
+    expect((await api('POST', '/api/domains', { name: 'navigo.help' }, token)).status).toBe(409)
+    expect((await api('POST', '/api/domains', { name: 'https://navigo.help/app' }, token)).status).toBe(400)
+
+    await api(
+      'POST',
+      '/api/servers',
+      { name: 'NaviGo', monthlyCost: 7300, paidUntil: toDateOnly(addDays(today, 2)) },
+      token,
+    )
+
+    const dashboard = await api('GET', '/api/dashboard', undefined, token)
+    expect(dashboard.body.alerts.map((alert: { kind: string }) => alert.kind)).toContain('DOMAIN_EXPIRING')
+
+    expect(await services.remindersService.sendDue()).toEqual({ sent: 2 })
+    expect(telegramMessages).toHaveLength(1)
+    expect(telegramMessages[0]).toContain('Домен navigo.help: продлить через 5 дней')
+    expect(telegramMessages[0]).toContain('Сервер NaviGo: оплатить через 2 дня')
+
+    expect(await services.remindersService.sendDue()).toEqual({ sent: 0 })
+    expect(telegramMessages).toHaveLength(1)
+
+    await api('PATCH', `/api/domains/${domainId}`, { expiresAt: toDateOnly(addDays(today, 1)) }, token)
+    expect(await services.remindersService.sendDue()).toEqual({ sent: 1 })
+    expect(telegramMessages[1]).toContain('Домен navigo.help: продлить через 1 день')
+
+    const list = await api('GET', '/api/domains', undefined, token)
+    expect(list.body.domains).toHaveLength(1)
+    expect((await api('DELETE', `/api/domains/${domainId}`, undefined, token)).status).toBe(204)
   })
 })

@@ -3,6 +3,7 @@ import type { UserDto } from '@projects-hq/contracts'
 import type { AuthService } from '../auth/service'
 import type { ClientsService } from '../clients/service'
 import type { AnalyticsService } from '../dashboard/analytics'
+import type { DomainsService } from '../domains/service'
 import type { DashboardService } from '../dashboard/service'
 import type { AppEnv } from '../env'
 import type { HealthService } from '../health/service'
@@ -22,6 +23,7 @@ export type AppVariables = {
   healthService: HealthService
   dashboardService: DashboardService
   analyticsService: AnalyticsService
+  domainsService: DomainsService
   /** Set by `requireAuth` for every protected route. */
   user: UserDto
 }

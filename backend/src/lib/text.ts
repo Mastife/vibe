@@ -7,8 +7,22 @@ export function plural(count: number, forms: [string, string, string]): string {
   return forms[2]
 }
 
+/** "15 000 ₸" for tenge, "15 000 USD" otherwise; never converts between currencies. */
 export function formatMoney(amount: number, currency: string): string {
-  return `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(amount)} ${currency}`
+  return `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(amount)} ${currency === 'KZT' ? '₸' : currency}`
+}
+
+const longDateFormatter = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', timeZone: 'UTC' })
+const monthFormatter = new Intl.DateTimeFormat('ru-RU', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+
+/** `2026-11-01` -> "1 ноября". */
+export function formatDateLong(value: string): string {
+  return longDateFormatter.format(new Date(`${value}T00:00:00Z`))
+}
+
+/** `2026-09` -> "сентябрь 2026 г.". */
+export function formatMonth(period: string): string {
+  return monthFormatter.format(new Date(`${period}-01T00:00:00Z`))
 }
 
 export function formatDays(days: number): string {

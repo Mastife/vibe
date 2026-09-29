@@ -36,6 +36,18 @@ const cronTasks = {
     const sent = await digest.send()
     console.log(sent ? 'Cron digest:daily: digest sent.' : 'Cron digest:daily: nothing to send or Telegram is not configured.')
   },
+  'domains:sync': async (runtime) => {
+    const result = await createServices(runtime).domainsService.syncExpiry()
+    console.log(`Cron domains:sync: ${result.checked} checked, ${result.updated} updated, ${result.failed} failed.`)
+  },
+  'billing:auto': async (runtime) => {
+    const result = await createServices(runtime).billingService.issueDue()
+    console.log(`Cron billing:auto: ${result.issued} invoices issued.`)
+  },
+  'reminders:send': async (runtime) => {
+    const result = await createServices(runtime).remindersService.sendDue()
+    console.log(`Cron reminders:send: ${result.sent} reminders sent.`)
+  },
 } satisfies Record<string, CronTask>
 
 export type CronTaskName = keyof typeof cronTasks

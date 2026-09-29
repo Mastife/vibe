@@ -31,6 +31,7 @@ export function toInvoiceDto(row: InvoiceRow, now: Date): InvoiceDto {
     paidAt: toDateOnlyOrNull(row.paidAt),
     note: row.note,
     isOverdue: isInvoiceOverdue(row.status, row.dueAt, now),
+    autoPeriod: row.autoPeriod,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   }

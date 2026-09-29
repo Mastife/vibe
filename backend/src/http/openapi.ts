@@ -29,3 +29,4 @@ export function errorResponse(description: string) {
 export const unauthorizedResponse = errorResponse('Access token is missing, invalid, or expired')
 export const notFoundResponse = errorResponse('Entity not found')
 export const validationResponse = errorResponse('Invalid payload')
+export const conflictResponse = errorResponse('Entity already exists')

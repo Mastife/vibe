@@ -1,6 +1,7 @@
 import type { DashboardResponse, HealthStatus, InvoiceDto, ProjectDto } from '@projects-hq/contracts'
 
 import type { DbClient } from '../db'
+import type { DomainsService } from '../domains/service'
 import type { InvoicesService } from '../invoices/service'
 import { addDays, monthlyEquivalent, todayUtc } from '../lib/dates'
 import { decimalToNumber, sumByCurrency } from '../lib/money'
@@ -16,20 +17,22 @@ export class DashboardService {
     private readonly projects: ProjectsService,
     private readonly servers: ServersService,
     private readonly invoices: InvoicesService,
+    private readonly domains: DomainsService,
   ) {}
 
   async build(now = new Date()): Promise<DashboardResponse> {
-    const [projects, servers, openInvoices, paidRows] = await Promise.all([
+    const [projects, servers, openInvoices, domains, paidRows] = await Promise.all([
       this.projects.list(now),
       this.servers.list(now),
       this.invoices.list({ status: 'SENT' }, now),
+      this.domains.list(now),
       this.db.invoice.findMany({
         where: { status: 'PAID', paidAt: { gte: addDays(todayUtc(now), -30) } },
         select: { amount: true, currency: true },
       }),
     ])
 
-    const alerts = buildAlerts({ projects, servers, openInvoices, now })
+    const alerts = buildAlerts({ projects, servers, openInvoices, domains, now })
     const liveProjects = projects.filter((project) => project.status !== 'ARCHIVED')
     const monitoredProjects = liveProjects
       .filter((project) => project.productionUrl || project.healthCheckUrl)
