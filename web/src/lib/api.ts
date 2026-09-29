@@ -337,12 +337,18 @@ export class ApiClient {
   }
 
   private async rawRequest(path: string, options: RequestOptions): Promise<Response> {
-    const response = await fetch(`${apiBaseUrl}${path}`, {
-      method: options.method ?? 'GET',
-      credentials: 'include',
-      headers: this.headers(options),
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
-    })
+    let response: Response
+    try {
+      response = await fetch(`${apiBaseUrl}${path}`, {
+        method: options.method ?? 'GET',
+        credentials: 'include',
+        headers: this.headers(options),
+        body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      })
+    } catch {
+      // fetch only rejects when the request never got an HTTP answer: offline, tunnel down, server stopped.
+      throw new ApiRequestError(0, 'NETWORK_ERROR', networkErrorMessage)
+    }
 
     if (response.status === 401 && options.auth && options.retryOnUnauthorized !== false) {
       const refreshed = await this.refreshOnce().catch(async (error: unknown) => {
@@ -392,8 +398,16 @@ export class ApiClient {
   }
 }
 
+const networkErrorMessage =
+  'Нет связи с сервером панели. Проверьте интернет (и Tailscale на телефоне) и что компьютер с панелью включён, затем повторите.'
+
+const serverDownMessage =
+  'Сервер панели сейчас не отвечает — скорее всего, он перезапускается. Подождите минуту и повторите; введённые данные не потеряются.'
+
 async function toApiError(response: Response) {
-  const fallbackMessage = `Запрос завершился с ошибкой ${response.status}`
+  // A proxy in front of a stopped API answers 5xx without our JSON error body.
+  const fallbackMessage =
+    response.status >= 500 ? serverDownMessage : `Запрос завершился с ошибкой ${response.status}`
 
   try {
     const parsed = apiErrorSchema.parse(await response.json())
