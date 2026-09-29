@@ -67,9 +67,51 @@ describe('checkDockerOverSsh', () => {
     expect(denied).toMatchObject({ ok: false, error: 'SSH: u@h: Permission denied (publickey).' })
 
     const slow = await checkDockerOverSsh('u@h', 'bot', options({ exitCode: null, stdout: '', stderr: '', timedOut: true }))
-    expect(slow).toMatchObject({ ok: false, error: 'Нет ответа по SSH за 5000 мс' })
+    expect(slow).toMatchObject({ ok: false, error: 'Нет ответа по SSH за 20 с (2 попытки)' })
 
     const crashed = await checkDockerOverSsh('u@h', 'bot', options(new Error('spawn ssh ENOENT')))
     expect(crashed).toMatchObject({ ok: false, error: 'SSH: spawn ssh ENOENT' })
+  })
+})
+
+describe('checkDockerOverSsh retries', () => {
+  test('retries once after a dropped SSH handshake and succeeds', async () => {
+    const calls: number[] = []
+    const results: CommandResult[] = [
+      { exitCode: null, stdout: '', stderr: '', timedOut: true },
+      { exitCode: 0, stdout: 'running|', stderr: '', timedOut: false },
+    ]
+    const result = await checkDockerOverSsh('u@h', 'bot', {
+      timeoutMs: 10_000,
+      run: async (_command, timeoutMs) => {
+        calls.push(timeoutMs)
+        return results.shift()!
+      },
+    })
+    expect(result).toMatchObject({ ok: true, error: null })
+    // SSH gets at least 20 s even when the HTTP timeout is shorter.
+    expect(calls).toEqual([20_000, 20_000])
+  })
+
+  test('retries ssh transport errors (exit 255) but not remote command errors', async () => {
+    let calls = 0
+    await checkDockerOverSsh('u@h', 'bot', {
+      timeoutMs: 10_000,
+      run: async () => {
+        calls += 1
+        return { exitCode: 255, stdout: '', stderr: 'Connection reset by peer', timedOut: false }
+      },
+    })
+    expect(calls).toBe(2)
+
+    calls = 0
+    await checkDockerOverSsh('u@h', 'bot', {
+      timeoutMs: 10_000,
+      run: async () => {
+        calls += 1
+        return { exitCode: 1, stdout: '', stderr: 'Error: No such object: bot', timedOut: false }
+      },
+    })
+    expect(calls).toBe(1)
   })
 })

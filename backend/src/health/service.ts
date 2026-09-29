@@ -4,10 +4,11 @@ import type { DbClient } from '../db'
 import type { AppEnv } from '../env'
 import { AppError } from '../http/errors'
 import { addDays } from '../lib/dates'
-import { escapeHtml, type Notifier } from '../notifications/telegram'
-import { checkUrl, type HttpCheckResult } from './checker'
+import type { Notifier } from '../notifications/telegram'
+import { checkUrl } from './checker'
 import { checkDockerOverSsh } from './docker-checker'
 import { toHealthRunDto } from './dto'
+import { formatTransitions, type HealthTransition } from './notify'
 import { combineResults, describePlan, monitorPlan, type MonitorPlan } from './target'
 import { nextHealthState } from './transition'
 
@@ -61,7 +62,9 @@ export class HealthService {
       )
     }
 
-    return this.runCheck(project, plan)
+    const { run, transition } = await this.runCheck(project, plan)
+    await this.sendTransitions(transition ? [transition] : [])
+    return run
   }
 
   async checkAll(): Promise<HealthRunAllResponse> {
@@ -81,21 +84,25 @@ export class HealthService {
     const queue = [...projects]
     let up = 0
     let down = 0
+    const transitions: HealthTransition[] = []
 
     const workers = Array.from({ length: Math.min(batchConcurrency, queue.length) }, async () => {
       for (let project = queue.shift(); project; project = queue.shift()) {
         const plan = monitorPlan(project)
         if (!plan) continue
         try {
-          const run = await this.runCheck(project, plan)
+          const { run, transition } = await this.runCheck(project, plan)
           if (run.ok) up += 1
           else down += 1
+          if (transition) transitions.push(transition)
         } catch (error) {
           console.error(`Health check for ${project.name} failed`, error)
         }
       }
     })
     await Promise.all(workers)
+    // Sent after the whole batch so one incident across several projects becomes one message.
+    await this.sendTransitions(transitions)
 
     return { checked: projects.length, up, down }
   }
@@ -107,7 +114,10 @@ export class HealthService {
     return result.count
   }
 
-  private async runCheck(project: MonitoredProject, plan: MonitorPlan): Promise<HealthCheckRunDto> {
+  private async runCheck(
+    project: MonitoredProject,
+    plan: MonitorPlan,
+  ): Promise<{ run: HealthCheckRunDto; transition: HealthTransition | null }> {
     const timeoutMs = this.env.HEALTH_CHECK_TIMEOUT_MS
     const [web, container] = await Promise.all([
       plan.url ? this.check(plan.url, { timeoutMs }) : null,
@@ -148,35 +158,27 @@ export class HealthService {
       }),
     ])
 
-    await this.notifyTransition(project, describePlan(plan) ?? '', next.status, result)
+    const previous = project.lastHealthStatus
+    const transition: HealthTransition | null =
+      next.status === 'DOWN' && previous !== 'DOWN'
+        ? {
+            kind: 'down',
+            projectId: project.id,
+            name: project.name,
+            error: result.error ?? 'Проверка не прошла',
+            target: describePlan(plan) ?? '',
+          }
+        : next.status === 'UP' && previous === 'DOWN'
+          ? { kind: 'up', projectId: project.id, name: project.name, statusCode: result.statusCode, latencyMs: result.latencyMs }
+          : null
 
-    return toHealthRunDto(run)
+    return { run: toHealthRunDto(run), transition }
   }
 
-  private async notifyTransition(
-    project: MonitoredProject,
-    url: string,
-    nextStatus: HealthStatus,
-    result: HttpCheckResult,
-  ) {
+  private async sendTransitions(transitions: HealthTransition[]) {
     if (!this.notifier) return
-    const previous = project.lastHealthStatus
-
-    if (nextStatus === 'DOWN' && previous !== 'DOWN') {
-      await this.notifier.send(
-        [
-          `🔴 <b>${escapeHtml(project.name)}</b> недоступен`,
-          escapeHtml(result.error ?? 'Проверка не прошла'),
-          escapeHtml(url),
-          this.env.APP_URL ? `${this.env.APP_URL}/projects/${project.id}` : null,
-        ]
-          .filter(Boolean)
-          .join('\n'),
-      )
-    } else if (nextStatus === 'UP' && previous === 'DOWN') {
-      await this.notifier.send(
-        `🟢 <b>${escapeHtml(project.name)}</b> снова работает (${result.statusCode ? `HTTP ${result.statusCode}, ` : ''}${result.latencyMs} мс)`,
-      )
+    for (const text of formatTransitions(transitions, this.env.APP_URL ?? undefined)) {
+      await this.notifier.send(text)
     }
   }
 }
