@@ -3,7 +3,40 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { Typography } from "@/components/ui/typography"
 
+/**
+ * Copies each column's header text onto its body cells as `data-label`, so on narrow screens the
+ * stylesheet can lay every row out as a card of "label: value" pairs (see `table[data-slot=table]`
+ * in index.css). The first column becomes the card title; an unlabeled or «Действия» column holds
+ * the row's buttons.
+ */
+function labelCells(table: HTMLTableElement) {
+  const headers = Array.from(table.tHead?.rows[0]?.cells ?? [], (cell) => cell.textContent?.trim() ?? "")
+  if (headers.length === 0) return
+  for (const body of Array.from(table.tBodies)) {
+    for (const row of Array.from(body.rows)) {
+      Array.from(row.cells).forEach((cell, index) => {
+        const header = headers[index] ?? ""
+        if (index === 0) cell.dataset.cardTitle = ""
+        if (!header || header === "Действия") cell.dataset.cardActions = ""
+        else if (cell.dataset.label !== header) cell.dataset.label = header
+      })
+    }
+  }
+}
+
 function Table({ className, ...props }: React.ComponentProps<"table">) {
+  const tableRef = React.useRef<HTMLTableElement>(null)
+
+  React.useLayoutEffect(() => {
+    const table = tableRef.current
+    if (!table) return
+    labelCells(table)
+    // Rows arrive and change with data; attributes are not observed, so labelling cannot loop.
+    const observer = new MutationObserver(() => labelCells(table))
+    observer.observe(table, { childList: true, subtree: true, characterData: true })
+    return () => observer.disconnect()
+  }, [])
+
   return (
     <div
       data-slot="table-container"
@@ -11,6 +44,7 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
     >
       <Typography asChild variant="bodySm">
         <table
+          ref={tableRef}
           data-slot="table"
           className={cn("w-full caption-bottom", className)}
           {...props}

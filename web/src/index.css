@@ -137,3 +137,69 @@
     @apply font-sans;
     }
 }
+/*
+ * Phones: every table row becomes a card. Cells are labelled from the header row by the Table
+ * component (data-label); the first column is the card title and the unlabeled column the actions.
+ * Unlayered on purpose so it wins over the cell utilities (padding, nowrap) from the primitive.
+ */
+@media (max-width: 767px) {
+  table[data-slot="table"],
+  table[data-slot="table"] > tbody,
+  table[data-slot="table"] > tbody > tr {
+    display: block;
+    width: 100%;
+  }
+
+  table[data-slot="table"] > thead {
+    display: none;
+  }
+
+  table[data-slot="table"] > tbody > tr {
+    display: grid;
+    gap: 0.375rem;
+    margin-bottom: 0.625rem;
+    padding: 0.75rem 0.875rem;
+    border: 1px solid var(--border);
+    border-radius: 0.875rem;
+  }
+
+  table[data-slot="table"] > tbody > tr > td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-width: 0;
+    padding: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: right;
+  }
+
+  table[data-slot="table"] > tbody > tr > td[data-label]::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    max-width: 45%;
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+    text-align: left;
+  }
+
+  table[data-slot="table"] > tbody > tr > td[data-card-title] {
+    display: block;
+    padding-bottom: 0.25rem;
+    text-align: left;
+  }
+
+  table[data-slot="table"] > tbody > tr > td[data-card-title]::before {
+    content: none;
+  }
+
+  table[data-slot="table"] > tbody > tr > td[data-card-actions] {
+    justify-content: flex-end;
+    padding-top: 0.25rem;
+  }
+
+  table[data-slot="table"] > tbody > tr > td > * {
+    min-width: 0;
+  }
+}

@@ -148,7 +148,7 @@ export function StatusBoard({ data, onRunChecks, checking }: StatusBoardProps) {
           </Typography>
         </div>
         {subline && (
-          <Typography as="span" variant="caption" tone="current" className="line-clamp-2 opacity-85">
+          <Typography as="span" variant="caption" tone="current" className="opacity-85">
             {subline}
           </Typography>
         )}
@@ -166,10 +166,12 @@ export function StatusBoard({ data, onRunChecks, checking }: StatusBoardProps) {
                 aria-label={`${project.name}: ${tileLabel[state]}`}
                 className={cn('grid min-w-0 gap-0.5 rounded-lg px-2 py-1.5 ring-1 ring-inset', tileClass[state])}
               >
-                <span className="flex min-w-0 items-center gap-1.5">
-                  {state !== 'down' && <StatusDot tone={tileTone[state]} className="size-1.5" />}
-                  <Typography as="span" variant="controlXs" tone="current" truncate className="min-w-0">
-                    {project.name}
+                <span className="flex min-w-0 items-start gap-1.5">
+                  {state !== 'down' && <StatusDot tone={tileTone[state]} className="mt-1.5 size-1.5" />}
+                  <Typography as="span" variant="caption" tone="current" className="min-w-0 break-words">
+                    <Typography as="span" variant="emphasis">
+                      {project.name}
+                    </Typography>
                   </Typography>
                 </span>
                 <Typography as="span" variant="caption" tone="current" className="tabular-nums opacity-80">
@@ -188,16 +190,16 @@ export function StatusBoard({ data, onRunChecks, checking }: StatusBoardProps) {
       <div className="grid grid-cols-2 gap-1.5">
         {kpis.map((kpi) => (
           <div key={kpi.label} className="grid min-w-0 gap-0.5 rounded-lg bg-muted/50 px-3 py-2">
-            <Typography as="span" variant="caption" tone="muted" truncate>
+            <Typography as="span" variant="caption" tone="muted">
               {kpi.label}
             </Typography>
             <span className="flex min-w-0 items-center gap-1.5">
               {kpi.tone !== 'default' && <StatusDot tone={kpi.tone} className="size-1.5" />}
-              <Typography as="span" variant="bodySmMedium" truncate className="min-w-0 tabular-nums">
+              <Typography as="span" variant="bodySmMedium" className="min-w-0 break-words tabular-nums">
                 {kpi.value}
               </Typography>
             </span>
-            <Typography as="span" variant="caption" tone="muted" truncate>
+            <Typography as="span" variant="caption" tone="muted" className="break-words">
               {kpi.hint}
             </Typography>
           </div>
@@ -214,7 +216,7 @@ export function StatusBoard({ data, onRunChecks, checking }: StatusBoardProps) {
               className="flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-muted/60"
             >
               <SeverityDot severity={alert.severity} className="size-2 shrink-0" />
-              <Typography as="span" variant="bodySm" truncate className="min-w-0 flex-1">
+              <Typography as="span" variant="bodySm" className="min-w-0 flex-1 break-words">
                 {alert.title}
               </Typography>
               <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-4 shrink-0 text-muted-foreground" />

@@ -83,7 +83,7 @@ export function ProjectsPage() {
         value={filter}
         onValueChange={(value) => setFilter(value as StatusFilter)}
       >
-        <TabsList>
+        <TabsList className="no-scrollbar max-w-full justify-start overflow-x-auto">
           {statusFilters.map((item) => (
             <TabsTrigger key={item.value} value={item.value}>
               {item.label}
