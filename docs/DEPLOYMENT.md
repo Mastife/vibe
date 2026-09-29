@@ -9,7 +9,7 @@ Local setup from `README.md` and [LOCAL_DATABASE.md](LOCAL_DATABASE.md) does not
 Requirements: a VPS with Docker Engine + Compose plugin, a domain with an A/AAAA record pointing at it, ports 80 and 443 open.
 
 ```bash
-git clone git@github.com:Mastife/projects-hq.git
+git clone https://github.com/Mastife/vibe projects-hq
 cd projects-hq
 cp deploy/.env.production.example deploy/.env.production
 # fill in HQ_DOMAIN, POSTGRES_PASSWORD (openssl rand -hex 24), JWT_SECRET (openssl rand -hex 32),

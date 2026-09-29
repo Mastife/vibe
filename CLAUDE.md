@@ -63,7 +63,7 @@
 ## Git And Remote Policy
 
 - Inspect `git remote -v` before any branch, commit, push, or PR workflow.
-- This repository is the installed Projects HQ product, not the `vibe` template. Its home is `Mastife/projects-hq`; never push its branches to the template repository.
+- This repository (`Mastife/vibe`, default branch `master`) is the installed Projects HQ product, not a template checkout. Never open pull requests against the upstream template repository it was forked from.
 - Do not push, open PRs, or configure deployment for a remote the user has not confirmed.
 
 ## Task Modes

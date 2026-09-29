@@ -50,7 +50,7 @@ bun run seed
 Панель рассчитана на один из ваших серверов: `deploy/docker-compose.prod.yml` поднимает PostgreSQL, API, воркер и Caddy, который раздаёт фронтенд и выпускает HTTPS-сертификат автоматически.
 
 ```bash
-git clone git@github.com:Mastife/projects-hq.git && cd projects-hq
+git clone https://github.com/Mastife/vibe projects-hq && cd projects-hq
 cp deploy/.env.production.example deploy/.env.production   # заполните домен, пароли, Telegram
 docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.production up -d --build
 ```
@@ -98,4 +98,4 @@ bun run deploy:do:specs           # спецификации DigitalOcean в .sc
 
 API: `маршрут → Zod-валидация → guard сессии → сервис → Prisma → DTO`. Все маршруты панели закрыты bearer-токеном; refresh-токен живёт в HttpOnly-cookie. Воркер использует те же сервисы, что и API, и запускается из того же Docker-образа. Подробнее — [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), правила тестирования — [docs/TESTING.md](docs/TESTING.md), инструкции для агентов — [AGENTS.md](AGENTS.md) и [CLAUDE.md](CLAUDE.md).
 
-Проект собран на основе шаблона [vibe](https://github.com/Mastife/vibe); его первичные инструкции по установке удалены как выполненные.
+Репозиторий вырос из шаблона vibe (этот же репозиторий, форк шаблона): его первичные инструкции по установке удалены как выполненные, а панель живёт здесь.
