@@ -337,8 +337,12 @@ function ProjectForm({
                   <FieldLabel htmlFor={`${id}-autoInvoice`}>Выставлять счёт автоматически</FieldLabel>
                   <FieldDescription>
                     Каждый месяц в выбранный день клиенту выставляется счёт на ежемесячную плату, в Telegram приходит
-                    уведомление. Нужны клиент и сумма.
+                    уведомление. Нужны клиент и сумма. Если указан пилот, счета начнутся только после его окончания и
+                    решения «Продолжаем работу».
                   </FieldDescription>
+                  {project?.autoInvoice && project.pilot.blocksInvoicing && (
+                    <FieldDescription>Сейчас на паузе: идёт пилот или решение по нему ещё не «продолжаем».</FieldDescription>
+                  )}
                   <FieldError errors={fieldErrors.autoInvoice} />
                 </FieldContent>
               </Field>

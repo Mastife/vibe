@@ -4,6 +4,7 @@ import { addDays, toDateOnly, todayUtc } from '../lib/dates'
 import { decimalToNumber } from '../lib/money'
 import { formatDateLong, formatMoney, formatMonth } from '../lib/text'
 import { escapeHtml, type Notifier } from '../notifications/telegram'
+import { pilotBlocksInvoicing } from '../projects/pilot'
 
 /** Days after the billing day during which a missed run (worker offline) still issues that month's invoice. */
 export const billingGraceDays = 7
@@ -56,6 +57,8 @@ export class BillingService {
         monthlyFee: true,
         currency: true,
         billingDay: true,
+        pilotEndsAt: true,
+        pilotOutcome: true,
         client: { select: { name: true } },
       },
     })
@@ -64,6 +67,7 @@ export class BillingService {
     for (const project of projects) {
       const period = dueBillingPeriod(project.billingDay, today)
       if (!period || !project.clientId) continue
+      if (pilotBlocksInvoicing(project.pilotEndsAt, project.pilotOutcome, now)) continue
 
       const title = `Абонплата «${project.name}» за ${formatMonth(period)}`
       const amount = decimalToNumber(project.monthlyFee)

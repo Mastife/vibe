@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { projectPilot } from './pilot'
+import { pilotBlocksInvoicing, projectPilot } from './pilot'
 
 const now = new Date('2026-09-29T12:00:00Z')
 const day = (value: string) => new Date(`${value}T00:00:00Z`)
@@ -13,6 +13,7 @@ describe('projectPilot', () => {
       outcome: null,
       state: 'NONE',
       daysLeft: null,
+      blocksInvoicing: false,
     })
   })
 
@@ -28,7 +29,25 @@ describe('projectPilot', () => {
       state: 'DECIDED',
       outcome: 'CONTINUE',
       daysLeft: -2,
+      blocksInvoicing: false,
     })
     expect(projectPilot(null, null, 'DECLINE', now)).toMatchObject({ state: 'DECIDED', daysLeft: null })
+  })
+})
+
+describe('pilotBlocksInvoicing', () => {
+  test('never blocks a project without a pilot', () => {
+    expect(pilotBlocksInvoicing(null, null, now)).toBe(false)
+  })
+
+  test('blocks through the last pilot day, even when the client already agreed to continue', () => {
+    expect(pilotBlocksInvoicing(day('2026-10-19'), null, now)).toBe(true)
+    expect(pilotBlocksInvoicing(day('2026-09-29'), 'CONTINUE', now)).toBe(true)
+  })
+
+  test('after the pilot, only a decision to continue unblocks billing', () => {
+    expect(pilotBlocksInvoicing(day('2026-09-28'), null, now)).toBe(true)
+    expect(pilotBlocksInvoicing(day('2026-09-28'), 'DECLINE', now)).toBe(true)
+    expect(pilotBlocksInvoicing(day('2026-09-28'), 'CONTINUE', now)).toBe(false)
   })
 })

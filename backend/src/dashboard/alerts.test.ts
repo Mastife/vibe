@@ -20,7 +20,7 @@ function project(overrides: Partial<ProjectDto> & { id: string; name: string }):
     monthlyFee: null,
     autoInvoice: false,
     billingDay: 1,
-    pilot: { startsAt: null, endsAt: null, outcome: null, state: 'NONE', daysLeft: null },
+    pilot: { startsAt: null, endsAt: null, outcome: null, state: 'NONE', daysLeft: null, blocksInvoicing: false },
     currency: 'RUB',
     tags: [],
     notes: null,
@@ -168,6 +168,7 @@ describe('pilot alerts', () => {
       outcome: state === 'DECIDED' ? ('CONTINUE' as const) : null,
       state,
       daysLeft,
+      blocksInvoicing: true,
     })
     const alerts = buildAlerts({
       now,
