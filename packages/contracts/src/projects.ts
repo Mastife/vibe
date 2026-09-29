@@ -85,7 +85,7 @@ export const projectSchema = z.object({
   healthCheckUrl: z.string().nullable(),
   sshHost: z.string().nullable(),
   dockerContainer: z.string().nullable(),
-  /** What the monitor probes: health-check URL, else the Docker container over SSH, else the production URL. */
+  /** What the monitor probes: the site (health-check URL, else production URL) plus the Docker container when set. */
   monitorTarget: z.string().nullable(),
   clientId: idSchema.nullable(),
   serverId: idSchema.nullable(),

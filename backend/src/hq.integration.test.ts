@@ -593,9 +593,21 @@ maybeDescribe('projects hq API integration', () => {
     expect(confirmed.body.project.health).toMatchObject({ status: 'DOWN', error: 'Контейнер bonustar-bot: exited' })
     expect(telegramMessages.at(-1)).toContain('docker bonustar-bot @ ubuntu@194.238.42.51')
 
-    // A health-check URL takes precedence over the container.
+    // With a web endpoint too, both must pass: the site answers but the bot container is still down.
     const withUrl = await api('PATCH', `/api/projects/${projectId}`, { healthCheckUrl: target.url.toString() }, token)
-    expect(withUrl.body.project.monitorTarget).toBe(target.url.toString())
+    expect(withUrl.body.project.monitorTarget).toBe(`${target.url.toString()} + docker bonustar-bot @ ubuntu@194.238.42.51`)
+    const siteUpBotDown = await api('POST', `/api/projects/${projectId}/check`, undefined, token)
+    expect(siteUpBotDown.body.run).toMatchObject({ ok: false, statusCode: 200, error: 'Контейнер bonustar-bot: exited' })
+
+    dockerState.running = true
+    targetState.healthy = false
+    const siteDownBotUp = await api('POST', `/api/projects/${projectId}/check`, undefined, token)
+    expect(siteDownBotUp.body.run).toMatchObject({ ok: false, statusCode: 503, error: 'Сайт: HTTP 503' })
+
+    targetState.healthy = true
+    const bothUp = await api('POST', `/api/projects/${projectId}/check`, undefined, token)
+    expect(bothUp.body.run).toMatchObject({ ok: true, statusCode: 200, error: null })
+    expect(bothUp.body.project.health.status).toBe('UP')
     const cleared = await api('PATCH', `/api/projects/${projectId}`, { sshHost: null, dockerContainer: null, healthCheckUrl: null }, token)
     expect(cleared.body.project.monitorTarget).toBeNull()
   })
