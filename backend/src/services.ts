@@ -12,6 +12,7 @@ import { BillingService } from './invoices/billing'
 import { InvoicesService } from './invoices/service'
 import { JournalService } from './journal/service'
 import type { FetchLike } from './lib/fetch'
+import { createBotApi, JournalBot } from './notifications/bot'
 import { RemindersService } from './notifications/reminders'
 import { createNotifierFromEnv, type Notifier } from './notifications/telegram'
 import { ProjectsService } from './projects/service'
@@ -37,6 +38,8 @@ export type Services = {
   billingService: BillingService
   remindersService: RemindersService
   notifier: Notifier | null
+  /** Telegram chat front end for journal notes; only the worker polls it. */
+  journalBot: JournalBot | null
 }
 
 type ServiceOptions = {
@@ -82,6 +85,16 @@ export function createServices({ env, prisma }: { env: AppEnv; prisma: DbClient 
     notifier,
     env.APP_URL,
   )
+  const journalBot =
+    env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID
+      ? new JournalBot({
+          api: createBotApi(env.TELEGRAM_BOT_TOKEN, options.fetchImpl ?? fetch),
+          chatId: env.TELEGRAM_CHAT_ID,
+          projects: projectsService,
+          journal: journalService,
+          appUrl: env.APP_URL ?? undefined,
+        })
+      : null
 
   return {
     authService,
@@ -100,5 +113,6 @@ export function createServices({ env, prisma }: { env: AppEnv; prisma: DbClient 
     billingService,
     remindersService,
     notifier,
+    journalBot,
   }
 }

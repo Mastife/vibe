@@ -8,6 +8,8 @@ export type ScheduledTask = {
   intervalMs: number
   run: () => Promise<unknown>
   runImmediately?: boolean
+  /** Skip the log line for runs that did nothing (a falsy result); for tasks that run all the time. */
+  quiet?: boolean
 }
 
 const dayMs = 24 * 60 * 60 * 1000
@@ -23,7 +25,21 @@ export function workerTasks(runtime: BackendRuntime, services: Services): Schedu
   const env = runtime.env
   const digest = new DailyDigest(env.DAILY_DIGEST_HOUR_UTC, services.dashboardService, services.notifier, env.APP_URL)
 
+  // Long polling: each run waits for Telegram updates, so the next one starts right away.
+  const botTasks: ScheduledTask[] = services.journalBot
+    ? [
+        {
+          name: 'telegram:poll',
+          intervalMs: 500,
+          run: () => services.journalBot!.poll(),
+          runImmediately: true,
+          quiet: true,
+        },
+      ]
+    : []
+
   return [
+    ...botTasks,
     {
       name: 'health:check',
       intervalMs: env.HEALTH_CHECK_INTERVAL_SECONDS * 1000,
@@ -77,6 +93,7 @@ export async function runWorker(runtime: BackendRuntime, options: { services?: S
     `Worker started: ${tasks.map((task) => `${task.name} every ${Math.round(task.intervalMs / 1000)}s`).join(', ')}`,
   )
 
+  void services.journalBot?.setup()
   await Promise.all(tasks.map((task) => scheduleLoop(task, signal)))
 }
 
@@ -97,6 +114,7 @@ async function runSafely(task: ScheduledTask) {
   const startedAt = Date.now()
   try {
     const result = await task.run()
+    if (task.quiet && !result) return
     const summary = result === undefined || result === false ? '' : ` ${JSON.stringify(result)}`
     console.log(`[worker] ${task.name} finished in ${Date.now() - startedAt}ms${summary}`)
   } catch (error) {
