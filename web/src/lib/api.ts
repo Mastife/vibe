@@ -13,6 +13,8 @@ import {
   healthRunAllResponseSchema,
   invoiceListResponseSchema,
   invoiceResponseSchema,
+  journalEntryResponseSchema,
+  journalListResponseSchema,
   loginRequestSchema,
   logoutRequestSchema,
   meResponseSchema,
@@ -27,6 +29,8 @@ import {
   serverResponseSchema,
   tagListResponseSchema,
   tagMutationResponseSchema,
+  taskListResponseSchema,
+  taskResponseSchema,
   type AuthResponse,
   type AuthStatusResponse,
   type ClientCreatePayload,
@@ -49,6 +53,11 @@ import {
   type InvoiceListResponse,
   type InvoiceResponse,
   type InvoiceUpdatePayload,
+  type JournalEntryCreatePayload,
+  type JournalEntryResponse,
+  type JournalEntryUpdatePayload,
+  type JournalListQuery,
+  type JournalListResponse,
   type LoginRequest,
   type LogoutRequest,
   type MeResponse,
@@ -66,6 +75,11 @@ import {
   type ServerPaymentCreatePayload,
   type ServerResponse,
   type ServerUpdatePayload,
+  type TaskCreatePayload,
+  type TaskListQuery,
+  type TaskListResponse,
+  type TaskResponse,
+  type TaskUpdatePayload,
 } from '@projects-hq/contracts'
 import type { z } from 'zod'
 
@@ -301,6 +315,42 @@ export class ApiClient {
 
   async deleteClient(id: string) {
     await this.rawRequest(`/api/clients/${id}`, { method: 'DELETE', auth: true })
+  }
+
+  // Journal and tasks
+
+  listJournal(query: JournalListQuery = {}): Promise<JournalListResponse> {
+    const suffix = query.projectId ? `?projectId=${query.projectId}` : ''
+    return this.request(`/api/journal${suffix}`, journalListResponseSchema, { auth: true })
+  }
+
+  createJournalEntry(payload: JournalEntryCreatePayload): Promise<JournalEntryResponse> {
+    return this.request('/api/journal', journalEntryResponseSchema, { method: 'POST', body: payload, auth: true })
+  }
+
+  updateJournalEntry(id: string, payload: JournalEntryUpdatePayload): Promise<JournalEntryResponse> {
+    return this.request(`/api/journal/${id}`, journalEntryResponseSchema, { method: 'PATCH', body: payload, auth: true })
+  }
+
+  async deleteJournalEntry(id: string) {
+    await this.rawRequest(`/api/journal/${id}`, { method: 'DELETE', auth: true })
+  }
+
+  listTasks(query: TaskListQuery = {}): Promise<TaskListResponse> {
+    const suffix = query.projectId ? `?projectId=${query.projectId}` : ''
+    return this.request(`/api/tasks${suffix}`, taskListResponseSchema, { auth: true })
+  }
+
+  createTask(payload: TaskCreatePayload): Promise<TaskResponse> {
+    return this.request('/api/tasks', taskResponseSchema, { method: 'POST', body: payload, auth: true })
+  }
+
+  updateTask(id: string, payload: TaskUpdatePayload): Promise<TaskResponse> {
+    return this.request(`/api/tasks/${id}`, taskResponseSchema, { method: 'PATCH', body: payload, auth: true })
+  }
+
+  async deleteTask(id: string) {
+    await this.rawRequest(`/api/tasks/${id}`, { method: 'DELETE', auth: true })
   }
 
   // Invoices

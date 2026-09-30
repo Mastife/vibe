@@ -3,6 +3,7 @@ import type { HealthCheckRunDto, HealthRunAllResponse, HealthStatus } from '@pro
 import type { DbClient } from '../db'
 import type { AppEnv } from '../env'
 import { AppError } from '../http/errors'
+import type { JournalService } from '../journal/service'
 import { addDays } from '../lib/dates'
 import type { Notifier } from '../notifications/telegram'
 import { checkUrl } from './checker'
@@ -47,6 +48,7 @@ export class HealthService {
     private readonly notifier: Notifier | null,
     private readonly check: typeof checkUrl = checkUrl,
     private readonly checkDocker: typeof checkDockerOverSsh = checkDockerOverSsh,
+    private readonly journal?: JournalService,
   ) {}
 
   async checkProject(id: string): Promise<HealthCheckRunDto> {
@@ -171,6 +173,10 @@ export class HealthService {
         : next.status === 'UP' && previous === 'DOWN'
           ? { kind: 'up', projectId: project.id, name: project.name, statusCode: result.statusCode, latencyMs: result.latencyMs }
           : null
+
+    // Outages and recoveries are part of the project's history, not only a Telegram alert.
+    if (transition?.kind === 'down') await this.journal?.record(project.id, `Недоступен: ${transition.error}`, checkedAt)
+    if (transition?.kind === 'up') await this.journal?.record(project.id, 'Снова работает', checkedAt)
 
     return { run: toHealthRunDto(run), transition }
   }

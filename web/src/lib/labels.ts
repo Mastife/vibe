@@ -7,6 +7,8 @@ import type {
   ProjectPilot,
   ProjectStatus,
   ServerStatus,
+  TaskDto,
+  TaskStatus,
 } from '@projects-hq/contracts'
 
 import { formatDate, formatDays } from './format'
@@ -16,6 +18,22 @@ export const projectStatusLabels: Record<ProjectStatus, string> = {
   ACTIVE: 'Активен',
   PAUSED: 'Пауза',
   ARCHIVED: 'Архив',
+}
+
+export const taskStatusLabels: Record<TaskStatus, string> = {
+  TODO: 'К выполнению',
+  IN_PROGRESS: 'В работе',
+  DONE: 'Готово',
+}
+
+/** Deadline in plain words: "сегодня", "завтра", "через 5 дней", "просрочено на 2 дня". Null without a deadline. */
+export function taskDueLabel(task: Pick<TaskDto, 'dueAt' | 'daysLeft' | 'status'>): string | null {
+  if (!task.dueAt) return null
+  if (task.status === 'DONE' || task.daysLeft === null) return `срок ${formatDate(task.dueAt)}`
+  if (task.daysLeft < 0) return `просрочено на ${formatDays(-task.daysLeft)}`
+  if (task.daysLeft === 0) return 'сегодня'
+  if (task.daysLeft === 1) return 'завтра'
+  return `через ${formatDays(task.daysLeft)}`
 }
 
 export const serverStatusLabels: Record<ServerStatus, string> = {

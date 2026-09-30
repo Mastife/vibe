@@ -12,9 +12,11 @@ import { createHealthRoutes } from './health/routes'
 import type { AppBindings } from './http/context'
 import { errorResponse, handleError, validationErrorHook } from './http/errors'
 import { createInvoiceRoutes } from './invoices/routes'
+import { createJournalRoutes } from './journal/routes'
 import { createProjectRoutes } from './projects/routes'
 import { createServerRoutes } from './servers/routes'
 import { createTagRoutes } from './tags/routes'
+import { createTaskRoutes } from './tasks/routes'
 import { createServices, type Services } from './services'
 
 type CreateAppOptions = {
@@ -55,6 +57,8 @@ export function createApp({ env, prisma, services = createServices({ env, prisma
     c.set('analyticsService', services.analyticsService)
     c.set('domainsService', services.domainsService)
     c.set('tagsService', services.tagsService)
+    c.set('journalService', services.journalService)
+    c.set('tasksService', services.tasksService)
     await next()
   })
 
@@ -78,6 +82,8 @@ export function createApp({ env, prisma, services = createServices({ env, prisma
   app.route('/api/invoices', createInvoiceRoutes())
   app.route('/api/domains', createDomainRoutes())
   app.route('/api/tags', createTagRoutes())
+  app.route('/api/journal', createJournalRoutes())
+  app.route('/api/tasks', createTaskRoutes())
   app.route('/api/dashboard', createDashboardRoutes())
   app.route('/api/health', createHealthRoutes())
 

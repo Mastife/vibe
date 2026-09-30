@@ -12,6 +12,7 @@ import { describePlan, monitorPlan } from '../health/target'
 import { AppError } from '../http/errors'
 import { mapPrismaError } from '../http/prisma-errors'
 import { invoiceInclude, toInvoiceDto } from '../invoices/dto'
+import { projectStatusNames, type JournalService } from '../journal/service'
 import { addDays, parseDateOnly, parseDateOnlyOrNull, toIsoOrNull } from '../lib/dates'
 import { decimalToNumber } from '../lib/money'
 import { slugify, uniqueSlug } from '../lib/slug'
@@ -38,7 +39,11 @@ type OkCounts = { ok: number; total: number }
 const detailHistoryLimit = 288
 
 export class ProjectsService {
-  constructor(private readonly db: DbClient) {}
+  constructor(
+    private readonly db: DbClient,
+    /** Optional so read-only consumers and unit tests can build the service without a journal. */
+    private readonly journal?: JournalService,
+  ) {}
 
   async list(now = new Date()): Promise<ProjectDto[]> {
     const rows = await this.db.project.findMany({ include: projectInclude, orderBy: { name: 'asc' } })
@@ -109,6 +114,7 @@ export class ProjectsService {
       })
       .catch((error: unknown) => mapPrismaError(error, messages))
 
+    await this.journal?.record(row.id, `Проект добавлен, статус «${projectStatusNames[row.status]}»`, now)
     return toProjectDto(row, undefined, now)
   }
 
@@ -130,6 +136,12 @@ export class ProjectsService {
         )
       }
     }
+
+    // The journal records what changed, so the previous values are read before the write.
+    const before =
+      this.journal && (payload.status !== undefined || payload.pilotOutcome !== undefined)
+        ? await this.db.project.findUnique({ where: { id }, select: { status: true, pilotOutcome: true } })
+        : null
 
     const row = await this.db.project
       .update({
@@ -159,6 +171,18 @@ export class ProjectsService {
         include: projectInclude,
       })
       .catch((error: unknown) => mapPrismaError(error, messages))
+
+    if (before && before.status !== row.status) {
+      await this.journal?.record(
+        id,
+        `Статус: «${projectStatusNames[before.status]}» → «${projectStatusNames[row.status]}»`,
+        now,
+      )
+    }
+    if (before && before.pilotOutcome !== row.pilotOutcome && row.pilotOutcome) {
+      const decision = row.pilotOutcome === 'CONTINUE' ? 'клиент продолжает' : 'клиент отказался'
+      await this.journal?.record(id, `Пилот завершён: ${decision}`, now)
+    }
 
     const stats = await this.uptimeStats([id], now)
     return toProjectDto(row, stats.get(id), now)

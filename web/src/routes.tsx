@@ -6,6 +6,7 @@ import { ClientsPage } from '@/pages/clients'
 import { DashboardPage } from '@/pages/dashboard'
 import { DomainsPage } from '@/pages/domains'
 import { InvoicesPage } from '@/pages/invoices'
+import { JournalPage } from '@/pages/journal'
 import { ProjectDetailPage } from '@/pages/project-detail'
 import { ProjectsPage } from '@/pages/projects'
 import { ServerDetailPage } from '@/pages/server-detail'
@@ -37,6 +38,12 @@ const projectDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/projects/$projectId',
   component: ProjectDetailPage,
+})
+
+const journalRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/journal',
+  component: JournalPage,
 })
 
 const serversRoute = createRoute({
@@ -74,6 +81,7 @@ const routeTree = rootRoute.addChildren([
   analyticsRoute,
   projectsRoute,
   projectDetailRoute,
+  journalRoute,
   serversRoute,
   serverDetailRoute,
   domainsRoute,

@@ -6,6 +6,7 @@ import {
   Invoice01Icon,
   Logout01Icon,
   ServerStack01Icon,
+  TaskDaily01Icon,
   UserGroupIcon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -34,6 +35,7 @@ const navItems = [
   { to: '/', label: 'Обзор', icon: DashboardSpeed02Icon, exact: true },
   { to: '/analytics', label: 'Аналитика', icon: Analytics01Icon, exact: false },
   { to: '/projects', label: 'Проекты', icon: Folder01Icon, exact: false },
+  { to: '/journal', label: 'Журнал', icon: TaskDaily01Icon, exact: false },
   { to: '/servers', label: 'Серверы', icon: ServerStack01Icon, exact: false },
   { to: '/domains', label: 'Домены', icon: Globe02Icon, exact: false },
   { to: '/clients', label: 'Клиенты', icon: UserGroupIcon, exact: false },

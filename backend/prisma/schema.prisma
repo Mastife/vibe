@@ -172,6 +172,8 @@ model Project {
   healthRuns          HealthCheckRun[]
   invoices            Invoice[]
   domains             Domain[]
+  journal             JournalEntry[]
+  tasks               ProjectTask[]
 
   @@index([clientId])
   @@index([serverId])
@@ -252,4 +254,48 @@ model ReminderLog {
 
   @@unique([kind, entityId, dueAt, threshold])
   @@map("reminder_log")
+}
+
+/// `NOTE` is written by a person; `EVENT` is recorded by the panel itself.
+enum JournalKind {
+  NOTE
+  EVENT
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+/// Project diary: manual notes plus automatic events (status changes, outages, finished tasks).
+model JournalEntry {
+  id         String      @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  projectId  String      @map("project_id") @db.Uuid
+  kind       JournalKind @default(NOTE)
+  text       String
+  happenedAt DateTime    @default(now()) @map("happened_at")
+  createdAt  DateTime    @default(now()) @map("created_at")
+  updatedAt  DateTime    @updatedAt @map("updated_at")
+  project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, happenedAt])
+  @@index([happenedAt])
+  @@map("journal_entries")
+}
+
+model ProjectTask {
+  id        String     @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  projectId String     @map("project_id") @db.Uuid
+  title     String
+  status    TaskStatus @default(TODO)
+  dueAt     DateTime?  @map("due_at") @db.Date
+  doneAt    DateTime?  @map("done_at")
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, status])
+  @@index([status, dueAt])
+  @@map("project_tasks")
 }
