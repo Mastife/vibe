@@ -7,6 +7,37 @@ export function extractEntryScript(html: string): string | null {
   return html.match(entryScriptPattern)?.[1] ?? null
 }
 
+export type PageActivity = {
+  /** A modal (form or confirmation) is open. */
+  dialogOpen: boolean
+  /** The cursor is in a text field, a select, or another editable control. */
+  editing: boolean
+  /** Some text field holds text that a reload would throw away. */
+  unsavedText: boolean
+}
+
+/** A reload is only silent when it cannot interrupt typing or lose anything entered. */
+export function canReloadSilently(activity: PageActivity): boolean {
+  return !activity.dialogOpen && !activity.editing && !activity.unsavedText
+}
+
+const textInputSelector = 'textarea, input:not([type]), input[type="text"], input[type="search"], input[type="date"]'
+
+function readPageActivity(): PageActivity {
+  const active = document.activeElement
+  return {
+    dialogOpen: document.querySelector('[role="dialog"], [role="alertdialog"]') !== null,
+    editing:
+      active instanceof HTMLInputElement ||
+      active instanceof HTMLTextAreaElement ||
+      active instanceof HTMLSelectElement ||
+      (active instanceof HTMLElement && active.isContentEditable),
+    unsavedText: [...document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(textInputSelector)].some(
+      (field) => field.value.trim() !== '',
+    ),
+  }
+}
+
 function loadedEntryScript(): string | null {
   const script = document.querySelector<HTMLScriptElement>('script[type="module"][src*="/assets/"]')
   return script ? new URL(script.src).pathname : null
@@ -18,30 +49,30 @@ async function latestEntryScript(): Promise<string | null> {
 }
 
 /**
- * Phones keep a panel tab alive for days, so it can keep running a build that has since been
- * replaced. Every deploy changes the hashed entry script: when the tab comes back into view on a
- * newer build it reloads quietly (nothing is being typed at that moment); while it stays open it
- * offers a reload instead of interrupting.
+ * A panel tab stays open for days, so it can keep running a build that has since been replaced.
+ * Every deploy changes the hashed entry script. A tab on an older build reloads by itself as soon as
+ * a check (every minute, and whenever the tab comes back into view) finds nothing being typed and no
+ * dialog open. Until then it offers the reload instead of interrupting.
  */
-export function watchForNewVersion({ intervalMs = 5 * 60_000 } = {}): () => void {
+export function watchForNewVersion({ intervalMs = 60_000 } = {}): () => void {
   const loaded = loadedEntryScript()
   if (!loaded) return () => undefined // Vite dev server: modules hot-reload on their own.
 
   let offered = false
-  const check = async (returning: boolean) => {
+  const check = async () => {
     try {
       const latest = await latestEntryScript()
       if (!latest || latest === loaded) return
-      if (returning) {
+      if (canReloadSilently(readPageActivity())) {
         window.location.reload()
         return
       }
       if (offered) return
       offered = true
       toast('Вышла новая версия панели', {
-        description: 'Обновите страницу, чтобы увидеть изменения.',
+        description: 'Страница обновится сама, когда вы закончите ввод.',
         duration: Number.POSITIVE_INFINITY,
-        action: { label: 'Обновить', onClick: () => window.location.reload() },
+        action: { label: 'Обновить сейчас', onClick: () => window.location.reload() },
       })
     } catch {
       // Offline or the server is restarting: try again on the next tick.
@@ -49,15 +80,15 @@ export function watchForNewVersion({ intervalMs = 5 * 60_000 } = {}): () => void
   }
 
   const onVisibility = () => {
-    if (document.visibilityState === 'visible') void check(true)
+    if (document.visibilityState === 'visible') void check()
   }
   // iOS restores tabs from the back/forward cache without a visibility change.
   const onPageShow = (event: PageTransitionEvent) => {
-    if (event.persisted) void check(true)
+    if (event.persisted) void check()
   }
   document.addEventListener('visibilitychange', onVisibility)
   window.addEventListener('pageshow', onPageShow)
-  const timer = window.setInterval(() => void check(false), intervalMs)
+  const timer = window.setInterval(() => void check(), intervalMs)
 
   return () => {
     document.removeEventListener('visibilitychange', onVisibility)
