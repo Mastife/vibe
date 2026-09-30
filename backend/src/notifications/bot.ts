@@ -31,7 +31,7 @@ type Chat = { id: number | string }
 
 export type BotUpdate = {
   update_id: number
-  message?: { chat: Chat; text?: string }
+  message?: { chat: Chat; text?: string; date?: number }
   callback_query?: { id: string; data?: string; message?: { chat: Chat } }
 }
 
@@ -42,6 +42,8 @@ const cancelCallback = 'journal:cancel'
 
 /** A half-finished note is forgotten after this long, so a stray message days later is not filed by surprise. */
 const pendingTtlMs = 15 * 60_000
+/** Messages that waited longer than this (the worker was offline) are dropped instead of answered out of the blue. */
+const staleMessageMs = 10 * 60_000
 const longPollSeconds = 25
 const retryDelayMs = 10_000
 const noteLimit = 4000
@@ -115,6 +117,7 @@ export class JournalBot {
 
     const message = update.message
     if (!message?.text || !this.fromOwner(message.chat)) return
+    if (message.date !== undefined && now.getTime() - message.date * 1000 > staleMessageMs) return
     await this.handleText(message.text.trim(), now)
   }
 

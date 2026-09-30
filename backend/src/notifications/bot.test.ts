@@ -115,6 +115,14 @@ describe('journal bot', () => {
     expect(calls).toEqual([])
   })
 
+  test('drops messages that sat in the queue while the worker was offline', async () => {
+    const sentAt = Math.floor(now.getTime() / 1000)
+    await bot.handle({ update_id: 1, message: { chat: { id: 42 }, text: 'Вчерашнее', date: sentAt - 3600 } }, now)
+    expect(calls).toEqual([])
+    await bot.handle({ update_id: 2, message: { chat: { id: 42 }, text: 'Свежее', date: sentAt - 30 } }, now)
+    expect(sent()).toHaveLength(1)
+  })
+
   test('reports a project that no longer exists', async () => {
     await bot.handle(press('journal:p:gone'), now)
     expect(sent().at(-1)!.text).toContain('не найден')
