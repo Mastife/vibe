@@ -7,11 +7,17 @@ import type {
   InvoiceCreatePayload,
   InvoiceListQuery,
   InvoiceUpdatePayload,
+  JournalEntryCreatePayload,
+  JournalEntryUpdatePayload,
+  JournalListQuery,
   ProjectCreatePayload,
   ProjectUpdatePayload,
   ServerCreatePayload,
   ServerPaymentCreatePayload,
   ServerUpdatePayload,
+  TaskCreatePayload,
+  TaskListQuery,
+  TaskUpdatePayload,
 } from '@projects-hq/contracts'
 
 import { useAuth } from './use-auth'
@@ -28,6 +34,8 @@ export const queryKeys = {
   server: (id: string) => ['servers', id] as const,
   clients: ['clients'] as const,
   invoices: (query: InvoiceListQuery = {}) => ['invoices', query] as const,
+  journal: (query: JournalListQuery = {}) => ['journal', query] as const,
+  tasks: (query: TaskListQuery = {}) => ['tasks', query] as const,
 }
 
 /** Dashboard data feeds off every entity, so any write refreshes everything the panel shows. */
@@ -92,6 +100,62 @@ export function useDeleteTag() {
   const { api } = useAuth()
   const invalidate = useInvalidateAll()
   return useMutation({ mutationFn: (name: string) => api.deleteTag(name), onSuccess: invalidate })
+}
+
+export function useJournal(query: JournalListQuery = {}) {
+  const { api } = useAuth()
+  return useQuery({ queryKey: queryKeys.journal(query), queryFn: () => api.listJournal(query) })
+}
+
+export function useCreateJournalEntry() {
+  const { api } = useAuth()
+  const invalidate = useInvalidateAll()
+  return useMutation({
+    mutationFn: (payload: JournalEntryCreatePayload) => api.createJournalEntry(payload),
+    onSuccess: invalidate,
+  })
+}
+
+export function useUpdateJournalEntry() {
+  const { api } = useAuth()
+  const invalidate = useInvalidateAll()
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: JournalEntryUpdatePayload }) =>
+      api.updateJournalEntry(id, payload),
+    onSuccess: invalidate,
+  })
+}
+
+export function useDeleteJournalEntry() {
+  const { api } = useAuth()
+  const invalidate = useInvalidateAll()
+  return useMutation({ mutationFn: (id: string) => api.deleteJournalEntry(id), onSuccess: invalidate })
+}
+
+export function useTasks(query: TaskListQuery = {}) {
+  const { api } = useAuth()
+  return useQuery({ queryKey: queryKeys.tasks(query), queryFn: () => api.listTasks(query) })
+}
+
+export function useCreateTask() {
+  const { api } = useAuth()
+  const invalidate = useInvalidateAll()
+  return useMutation({ mutationFn: (payload: TaskCreatePayload) => api.createTask(payload), onSuccess: invalidate })
+}
+
+export function useUpdateTask() {
+  const { api } = useAuth()
+  const invalidate = useInvalidateAll()
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: TaskUpdatePayload }) => api.updateTask(id, payload),
+    onSuccess: invalidate,
+  })
+}
+
+export function useDeleteTask() {
+  const { api } = useAuth()
+  const invalidate = useInvalidateAll()
+  return useMutation({ mutationFn: (id: string) => api.deleteTask(id), onSuccess: invalidate })
 }
 
 export function useDomains() {

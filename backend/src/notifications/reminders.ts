@@ -1,4 +1,4 @@
-import type { DomainDto, InvoiceDto, ProjectDto, ServerDto } from '@projects-hq/contracts'
+import type { DomainDto, InvoiceDto, ProjectDto, ServerDto, TaskDto } from '@projects-hq/contracts'
 
 import type { DbClient } from '../db'
 import type { DomainsService } from '../domains/service'
@@ -7,9 +7,10 @@ import type { ProjectsService } from '../projects/service'
 import { addDays, daysBetween, parseDateOnly, todayUtc } from '../lib/dates'
 import { formatDateLong, formatDays, formatMoney } from '../lib/text'
 import type { ServersService } from '../servers/service'
+import type { TasksService } from '../tasks/service'
 import { escapeHtml, type Notifier } from './telegram'
 
-export type ReminderKind = 'SERVER_PAYMENT' | 'DOMAIN_RENEWAL' | 'INVOICE_DUE' | 'PILOT_END'
+export type ReminderKind = 'SERVER_PAYMENT' | 'DOMAIN_RENEWAL' | 'INVOICE_DUE' | 'PILOT_END' | 'TASK_DUE'
 
 /** Days before the due date at which a reminder fires; -1 marks the one-off "overdue" reminder. */
 export const reminderThresholds: Record<ReminderKind, number[]> = {
@@ -17,6 +18,7 @@ export const reminderThresholds: Record<ReminderKind, number[]> = {
   DOMAIN_RENEWAL: [30, 7, 1, 0],
   INVOICE_DUE: [3, 1, 0],
   PILOT_END: [7, 3, 1, 0],
+  TASK_DUE: [1, 0],
 }
 
 export type ReminderCandidate = {
@@ -44,6 +46,7 @@ export function collectReminders(input: {
   servers: ServerDto[]
   domains: DomainDto[]
   invoices: InvoiceDto[]
+  tasks?: TaskDto[]
   now: Date
 }): ReminderCandidate[] {
   const today = todayUtc(input.now)
@@ -88,6 +91,11 @@ export function collectReminders(input: {
     push('PILOT_END', project.id, pilot.endsAt, `Пилот ${project.name}${client}`, null)
   }
 
+  for (const task of input.tasks ?? []) {
+    if (task.status === 'DONE' || !task.dueAt) continue
+    push('TASK_DUE', task.id, task.dueAt, `Задача «${task.title}» (${task.project.name})`, null)
+  }
+
   return candidates.sort((a, b) => a.daysLeft - b.daysLeft)
 }
 
@@ -96,6 +104,7 @@ const kindIcon: Record<ReminderKind, string> = {
   DOMAIN_RENEWAL: '🌐',
   INVOICE_DUE: '💰',
   PILOT_END: '🧪',
+  TASK_DUE: '✅',
 }
 
 function when(candidate: ReminderCandidate): string {
@@ -104,6 +113,11 @@ function when(candidate: ReminderCandidate): string {
     if (candidate.daysLeft < 0) return `закончился ${formatDays(-candidate.daysLeft)} назад (${date}), решение клиента не отмечено`
     if (candidate.daysLeft === 0) return `последний день сегодня — пора принять решение о продолжении`
     return `заканчивается через ${formatDays(candidate.daysLeft)}, ${date} — обсудите с клиентом продолжение`
+  }
+  if (candidate.kind === 'TASK_DUE') {
+    if (candidate.daysLeft < 0) return `просрочена на ${formatDays(-candidate.daysLeft)} (срок ${date})`
+    if (candidate.daysLeft === 0) return `срок сегодня`
+    return `срок через ${formatDays(candidate.daysLeft)}, ${date}`
   }
   if (candidate.kind === 'INVOICE_DUE') {
     if (candidate.daysLeft < 0) return `оплата просрочена на ${formatDays(-candidate.daysLeft)} (срок ${date})`
@@ -139,6 +153,7 @@ export class RemindersService {
     private readonly servers: ServersService,
     private readonly domains: DomainsService,
     private readonly invoices: InvoicesService,
+    private readonly tasks: TasksService,
     private readonly notifier: Notifier | null,
     private readonly appUrl?: string,
   ) {}
@@ -146,13 +161,14 @@ export class RemindersService {
   /** Sends one Telegram message with every newly crossed threshold, then records them so each fires once. */
   async sendDue(now = new Date()): Promise<{ sent: number }> {
     if (!this.notifier) return { sent: 0 }
-    const [projects, servers, domains, invoices] = await Promise.all([
+    const [projects, servers, domains, invoices, tasks] = await Promise.all([
       this.projects.list(now),
       this.servers.list(now),
       this.domains.list(now),
       this.invoices.list({ status: 'SENT' }, now),
+      this.tasks.list({}, now),
     ])
-    const candidates = collectReminders({ projects, servers, domains, invoices, now })
+    const candidates = collectReminders({ projects, servers, domains, invoices, tasks, now })
     if (candidates.length === 0) return { sent: 0 }
 
     const logged = await this.db.reminderLog.findMany({

@@ -10,6 +10,7 @@ import { checkDockerOverSsh } from './health/docker-checker'
 import { HealthService } from './health/service'
 import { BillingService } from './invoices/billing'
 import { InvoicesService } from './invoices/service'
+import { JournalService } from './journal/service'
 import type { FetchLike } from './lib/fetch'
 import { RemindersService } from './notifications/reminders'
 import { createNotifierFromEnv, type Notifier } from './notifications/telegram'
@@ -17,6 +18,7 @@ import { ProjectsService } from './projects/service'
 import { ServersService } from './servers/service'
 import { createStorageServiceFromEnv, type StorageService } from './storage/service'
 import { TagsService } from './tags/service'
+import { TasksService } from './tasks/service'
 
 export type Services = {
   authService: AuthService
@@ -30,6 +32,8 @@ export type Services = {
   analyticsService: AnalyticsService
   domainsService: DomainsService
   tagsService: TagsService
+  journalService: JournalService
+  tasksService: TasksService
   billingService: BillingService
   remindersService: RemindersService
   notifier: Notifier | null
@@ -49,7 +53,9 @@ export function createServices({ env, prisma }: { env: AppEnv; prisma: DbClient 
   const authService = new AuthService(prisma, env)
   const storageService = createStorageServiceFromEnv(env)
   const notifier = createNotifierFromEnv(env, options.fetchImpl ?? fetch)
-  const projectsService = new ProjectsService(prisma)
+  const journalService = new JournalService(prisma)
+  const tasksService = new TasksService(prisma, journalService)
+  const projectsService = new ProjectsService(prisma, journalService)
   const serversService = new ServersService(prisma)
   const clientsService = new ClientsService(prisma)
   const invoicesService = new InvoicesService(prisma)
@@ -59,13 +65,23 @@ export function createServices({ env, prisma }: { env: AppEnv; prisma: DbClient 
     notifier,
     options.check ?? checkUrl,
     options.checkDocker ?? checkDockerOverSsh,
+    journalService,
   )
   const domainsService = new DomainsService(prisma, options.fetchImpl ?? fetch)
   const dashboardService = new DashboardService(prisma, projectsService, serversService, invoicesService, domainsService)
   const analyticsService = new AnalyticsService(prisma, projectsService, serversService, invoicesService)
   const tagsService = new TagsService(prisma)
   const billingService = new BillingService(prisma, env, notifier)
-  const remindersService = new RemindersService(prisma, projectsService, serversService, domainsService, invoicesService, notifier, env.APP_URL)
+  const remindersService = new RemindersService(
+    prisma,
+    projectsService,
+    serversService,
+    domainsService,
+    invoicesService,
+    tasksService,
+    notifier,
+    env.APP_URL,
+  )
 
   return {
     authService,
@@ -79,6 +95,8 @@ export function createServices({ env, prisma }: { env: AppEnv; prisma: DbClient 
     analyticsService,
     domainsService,
     tagsService,
+    journalService,
+    tasksService,
     billingService,
     remindersService,
     notifier,

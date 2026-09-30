@@ -9,9 +9,11 @@ import type { DashboardService } from '../dashboard/service'
 import type { AppEnv } from '../env'
 import type { HealthService } from '../health/service'
 import type { InvoicesService } from '../invoices/service'
+import type { JournalService } from '../journal/service'
 import type { ProjectsService } from '../projects/service'
 import type { ServersService } from '../servers/service'
 import type { StorageService } from '../storage/service'
+import type { TasksService } from '../tasks/service'
 
 export type AppVariables = {
   env: AppEnv
@@ -26,6 +28,8 @@ export type AppVariables = {
   analyticsService: AnalyticsService
   domainsService: DomainsService
   tagsService: TagsService
+  journalService: JournalService
+  tasksService: TasksService
   /** Set by `requireAuth` for every protected route. */
   user: UserDto
 }

@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 
 import { ConfirmDialog } from '@/components/confirm-dialog'
+import { ProjectWork } from '@/components/journal/project-work'
 import { HealthHistoryChart, HealthRunsTable } from '@/components/projects/health-history-chart'
 import { ProjectFormDialog } from '@/components/projects/project-form-dialog'
 import {
@@ -162,6 +163,8 @@ export function ProjectDetailPage() {
       )}
 
       <ProjectChips project={project} />
+
+      <ProjectWork projectId={project.id} />
 
       {target && healthRuns.length > 0 && (
         <Card>

@@ -632,4 +632,82 @@ maybeDescribe('projects hq API integration', () => {
     expect(telegramMessages).toHaveLength(3)
     expect(telegramMessages[2]).toBe('🟢 Снова работают: <b>bonustar</b>, <b>Handi</b>')
   })
+
+  test('keeps a project journal with notes, automatic events, and tasks with deadline reminders', async () => {
+    const token = await registerAdmin()
+    const today = todayUtc()
+    const created = await api('POST', '/api/projects', { name: 'Moika', productionUrl: target.url.toString() }, token)
+    const projectId = created.body.project.id as string
+    const other = await api('POST', '/api/projects', { name: 'Handi', status: 'DEVELOPMENT' }, token)
+
+    const note = await api('POST', '/api/journal', { projectId, text: '  Созвон с клиентом: просят отчёт по мойкам  ' }, token)
+    expect(note.status).toBe(201)
+    expect(note.body.entry).toMatchObject({ kind: 'NOTE', text: 'Созвон с клиентом: просят отчёт по мойкам' })
+    expect((await api('POST', '/api/journal', { projectId, text: ' ' }, token)).status).toBe(400)
+    expect((await api('POST', '/api/journal', { projectId: crypto.randomUUID(), text: 'x' }, token)).status).toBe(400)
+
+    const reworded = await api('PATCH', `/api/journal/${note.body.entry.id}`, { text: 'Созвон: нужен отчёт' }, token)
+    expect(reworded.body.entry.text).toBe('Созвон: нужен отчёт')
+
+    // Status changes and outages write themselves into the journal.
+    await api('PATCH', `/api/projects/${projectId}`, { status: 'PAUSED' }, token)
+    await api('PATCH', `/api/projects/${projectId}`, { name: 'Moika 2' }, token)
+    targetState.healthy = false
+    await api('POST', `/api/projects/${projectId}/check`, undefined, token)
+    await api('POST', `/api/projects/${projectId}/check`, undefined, token)
+    targetState.healthy = true
+    await api('POST', `/api/projects/${projectId}/check`, undefined, token)
+
+    const task = await api(
+      'POST',
+      '/api/tasks',
+      { projectId, title: 'Отправить отчёт', dueAt: toDateOnly(addDays(today, 1)) },
+      token,
+    )
+    expect(task.status).toBe(201)
+    expect(task.body.task).toMatchObject({ status: 'TODO', daysLeft: 1, isOverdue: false, doneAt: null })
+    const late = await api('POST', '/api/tasks', { projectId, title: 'Продлить домен', dueAt: toDateOnly(addDays(today, -2)) }, token)
+    expect(late.body.task).toMatchObject({ daysLeft: -2, isOverdue: true })
+    await api('POST', '/api/tasks', { projectId: other.body.project.id, title: 'Без срока' }, token)
+    expect((await api('POST', '/api/tasks', { projectId, title: '' }, token)).status).toBe(400)
+
+    const listed = await api('GET', `/api/tasks?projectId=${projectId}`, undefined, token)
+    expect(listed.body.tasks.map((item: { title: string }) => item.title)).toEqual(['Продлить домен', 'Отправить отчёт'])
+    expect((await api('GET', '/api/tasks', undefined, token)).body.tasks).toHaveLength(3)
+
+    expect(await services.remindersService.sendDue()).toEqual({ sent: 2 })
+    expect(telegramMessages.at(-1)).toContain('Задача «Продлить домен» (Moika 2): просрочена на 2 дня')
+    expect(telegramMessages.at(-1)).toContain('Задача «Отправить отчёт» (Moika 2): срок через 1 день')
+    expect(await services.remindersService.sendDue()).toEqual({ sent: 0 })
+
+    const started = await api('PATCH', `/api/tasks/${task.body.task.id}`, { status: 'IN_PROGRESS' }, token)
+    expect(started.body.task).toMatchObject({ status: 'IN_PROGRESS', doneAt: null })
+    const done = await api('PATCH', `/api/tasks/${late.body.task.id}`, { status: 'DONE' }, token)
+    expect(done.body.task).toMatchObject({ status: 'DONE', daysLeft: null, isOverdue: false })
+    expect(done.body.task.doneAt).not.toBeNull()
+    const reopened = await api('PATCH', `/api/tasks/${late.body.task.id}`, { status: 'TODO', dueAt: null }, token)
+    expect(reopened.body.task).toMatchObject({ status: 'TODO', doneAt: null, dueAt: null })
+
+    const journal = await api('GET', `/api/journal?projectId=${projectId}`, undefined, token)
+    expect(journal.body.entries.map((entry: { kind: string; text: string }) => `${entry.kind}: ${entry.text}`)).toEqual([
+      'EVENT: Задача выполнена: Продлить домен',
+      'EVENT: Снова работает',
+      'EVENT: Недоступен: HTTP 503',
+      'EVENT: Статус: «Активен» → «Пауза»',
+      'NOTE: Созвон: нужен отчёт',
+      'EVENT: Проект добавлен, статус «Активен»',
+    ])
+    const event = journal.body.entries[0]
+    expect((await api('PATCH', `/api/journal/${event.id}`, { text: 'переписано' }, token)).status).toBe(400)
+    expect((await api('DELETE', `/api/journal/${event.id}`, undefined, token)).status).toBe(204)
+    expect((await api('GET', '/api/journal', undefined, token)).body.entries).toHaveLength(6)
+
+    expect((await api('GET', '/api/journal')).status).toBe(401)
+    expect((await api('GET', '/api/tasks')).status).toBe(401)
+
+    // History and tasks belong to the project and go away with it.
+    await api('DELETE', `/api/projects/${projectId}`, undefined, token)
+    expect((await api('GET', '/api/journal', undefined, token)).body.entries).toHaveLength(1)
+    expect((await api('GET', '/api/tasks', undefined, token)).body.tasks).toHaveLength(1)
+  })
 })
