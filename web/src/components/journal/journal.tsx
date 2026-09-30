@@ -5,6 +5,7 @@ import { Link } from '@tanstack/react-router'
 import { useId, useState } from 'react'
 import { toast } from 'sonner'
 
+import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Textarea } from '@/components/ui/textarea'
@@ -126,6 +127,15 @@ export function JournalTimeline({
   const deleteEntry = useDeleteJournalEntry()
   const [visible, setVisible] = useState(pageSize)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<JournalEntryDto | null>(null)
+
+  function handleDelete() {
+    if (!deleting) return
+    deleteEntry.mutate(deleting.id, {
+      onSuccess: () => setDeleting(null),
+      onError: (error) => toast.error(error.message),
+    })
+  }
 
   if (entries.length === 0) {
     return (
@@ -181,8 +191,7 @@ export function JournalTimeline({
                     variant="ghost"
                     size="icon-xs"
                     title="Удалить"
-                    disabled={deleteEntry.isPending}
-                    onClick={() => deleteEntry.mutate(entry.id, { onError: (error) => toast.error(error.message) })}
+                    onClick={() => setDeleting(entry)}
                   >
                     <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
                     <Typography variant="srOnly">Удалить запись</Typography>
@@ -200,6 +209,14 @@ export function JournalTimeline({
           )
         })}
       </ol>
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(open) => !open && setDeleting(null)}
+        title="Удалить запись из журнала?"
+        description={deleting ? deleting.text.slice(0, 200) : ''}
+        pending={deleteEntry.isPending}
+        onConfirm={handleDelete}
+      />
       {entries.length > visible && (
         <Button type="button" variant="ghost" size="sm" className="justify-self-start" onClick={() => setVisible(visible + pageSize * 3)}>
           {`Показать ещё (${entries.length - visible})`}
