@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { journalEntryCreateSchema, taskCreateSchema, taskUpdateSchema } from './index'
+import { journalEntryCreateSchema, journalEntryUpdateSchema, taskCreateSchema, taskUpdateSchema } from './index'
 
 const projectId = '019990a0-0000-7000-8000-000000000001'
 
@@ -9,6 +9,14 @@ describe('journal contracts', () => {
     expect(journalEntryCreateSchema.parse({ projectId, text: '  Созвон  ' })).toEqual({ projectId, text: 'Созвон' })
     expect(journalEntryCreateSchema.safeParse({ projectId, text: '   ' }).success).toBe(false)
     expect(journalEntryCreateSchema.safeParse({ text: 'Созвон' }).success).toBe(false)
+  })
+
+  test('a note can be dated to when it happened', () => {
+    const happenedAt = '2026-10-03T09:30:00.000Z'
+    expect(journalEntryCreateSchema.parse({ projectId, text: 'Созвон', happenedAt })).toEqual({ projectId, text: 'Созвон', happenedAt })
+    expect(journalEntryCreateSchema.safeParse({ projectId, text: 'Созвон', happenedAt: '03.10.2026' }).success).toBe(false)
+    expect(journalEntryUpdateSchema.parse({ text: 'Созвон', happenedAt })).toEqual({ text: 'Созвон', happenedAt })
+    expect(journalEntryUpdateSchema.parse({ text: 'Созвон' })).toEqual({ text: 'Созвон' })
   })
 })
 

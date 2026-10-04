@@ -1,85 +1,219 @@
 import { Delete02Icon, Edit02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { journalEntryCreateSchema, journalEntryUpdateSchema, type JournalEntryDto, type ProjectDto } from '@projects-hq/contracts'
+import {
+  journalEntryCreateSchema,
+  journalEntryUpdateSchema,
+  type JournalEntryDto,
+  type JournalEntryResponse,
+  type ProjectDto,
+} from '@projects-hq/contracts'
 import { Link } from '@tanstack/react-router'
 import { useId, useState } from 'react'
 import { toast } from 'sonner'
 
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Button } from '@/components/ui/button'
+import { Field, FieldLabel, FieldTitle } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
+import { Kbd, KbdGroup } from '@/components/ui/kbd'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Textarea } from '@/components/ui/textarea'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Typography } from '@/components/ui/typography'
 import { formatDateTime } from '@/lib/format'
+import { fromLocalInputValue, toLocalInputValue } from '@/lib/local-datetime'
 import { useCreateJournalEntry, useDeleteJournalEntry, useUpdateJournalEntry } from '@/lib/queries'
 import { cn } from '@/lib/utils'
+
+const dayMs = 24 * 60 * 60 * 1000
+
+const modifierKey = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl'
+
+/** Ctrl+Enter (⌘+Enter on a Mac) sends the form the field belongs to. */
+function submitOnShortcut(event: React.KeyboardEvent<HTMLTextAreaElement>) {
+  if (event.key !== 'Enter' || !(event.ctrlKey || event.metaKey)) return
+  event.preventDefault()
+  event.currentTarget.form?.requestSubmit()
+}
+
+function ShortcutHint({ action }: { action: string }) {
+  return (
+    <Typography as="span" variant="caption" tone="muted" className="hidden items-center gap-1.5 md:flex">
+      <KbdGroup>
+        <Kbd>{modifierKey}</Kbd>
+        <Kbd>Enter</Kbd>
+      </KbdGroup>
+      {action}
+    </Typography>
+  )
+}
+
+type When = 'now' | 'yesterday' | 'custom'
+
+const whenOptions: Array<{ value: When; label: string }> = [
+  { value: 'now', label: 'Сейчас' },
+  { value: 'yesterday', label: 'Вчера' },
+  { value: 'custom', label: 'Другое время' },
+]
 
 type JournalComposerProps = {
   /** Fixed project on a project page; omit to let the user pick one. */
   projectId?: string
   projects?: ProjectDto[]
+  /** Project picked up front when the user can still change it. */
+  defaultProjectId?: string
+  autoFocus?: boolean
+  onSaved?: (response: JournalEntryResponse) => void
+  /** Shows a cancel button next to the submit one, for the composer inside a dialog. */
+  onCancel?: () => void
 }
 
-/** Writes a note into the project's history: a call, a decision, an agreement. */
-export function JournalComposer({ projectId, projects = [] }: JournalComposerProps) {
+/**
+ * Writes a note into the project's history: a call, a decision, an agreement. The note is dated
+ * now unless the user says it happened earlier.
+ */
+export function JournalComposer({
+  projectId,
+  projects = [],
+  defaultProjectId = '',
+  autoFocus = false,
+  onSaved,
+  onCancel,
+}: JournalComposerProps) {
   const id = useId()
   const createEntry = useCreateJournalEntry()
   const [text, setText] = useState('')
-  const [pickedProject, setPickedProject] = useState('')
+  const [pickedProject, setPickedProject] = useState(defaultProjectId)
+  const [when, setWhen] = useState<When>('now')
+  const [moment, setMoment] = useState('')
+
+  function pickWhen(next: string) {
+    if (next === '') return
+    const value = next as When
+    setWhen(value)
+    if (value === 'yesterday') setMoment(toLocalInputValue(new Date(Date.now() - dayMs)))
+    if (value === 'custom') setMoment(toLocalInputValue(new Date()))
+  }
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
-    const result = journalEntryCreateSchema.safeParse({ projectId: projectId ?? pickedProject, text })
+    const happenedAt = when === 'now' ? undefined : fromLocalInputValue(moment)
+    if (happenedAt === null) {
+      toast.error('Укажите дату и время')
+      return
+    }
+    if (happenedAt !== undefined && new Date(happenedAt).getTime() > Date.now()) {
+      toast.error('Запись не может быть датирована будущим')
+      return
+    }
+    const result = journalEntryCreateSchema.safeParse({ projectId: projectId ?? pickedProject, text, happenedAt })
     if (!result.success) {
       toast.error(result.error.issues[0]?.path[0] === 'projectId' ? 'Выберите проект' : 'Напишите, что произошло')
       return
     }
     createEntry.mutate(result.data, {
-      onSuccess: () => setText(''),
+      onSuccess: (response) => {
+        setText('')
+        setWhen('now')
+        onSaved?.(response)
+      },
       onError: (error) => toast.error(error.message),
     })
   }
 
   return (
-    <form onSubmit={handleSubmit} className="grid gap-2">
-      <Textarea
-        value={text}
-        rows={2}
-        placeholder="Что произошло: созвон, решение, договорённость"
-        aria-label="Новая запись"
-        onChange={(event) => setText(event.target.value)}
-      />
-      <div className="flex flex-wrap justify-end gap-2">
+    <form onSubmit={handleSubmit} className="grid gap-4">
+      <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
         {!projectId && (
-          <NativeSelect
-            id={`${id}-project`}
-            aria-label="Проект"
-            value={pickedProject}
-            onChange={(event) => setPickedProject(event.target.value)}
-          >
-            <NativeSelectOption value="">Проект</NativeSelectOption>
-            {projects.map((project) => (
-              <NativeSelectOption key={project.id} value={project.id}>
-                {project.name}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
+          <Field className="w-full sm:w-56">
+            <FieldLabel htmlFor={`${id}-project`}>Проект</FieldLabel>
+            <NativeSelect
+              id={`${id}-project`}
+              value={pickedProject}
+              onChange={(event) => setPickedProject(event.target.value)}
+            >
+              <NativeSelectOption value="">Выберите проект</NativeSelectOption>
+              {projects.map((project) => (
+                <NativeSelectOption key={project.id} value={project.id}>
+                  {project.name}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </Field>
         )}
-        <Button type="submit" disabled={createEntry.isPending}>
-          Записать
-        </Button>
+        <Field className="w-auto" aria-labelledby={`${id}-when`}>
+          <FieldTitle id={`${id}-when`}>Когда</FieldTitle>
+          <div className="flex flex-wrap items-center gap-2">
+            <ToggleGroup type="single" variant="outline" value={when} onValueChange={pickWhen}>
+              {whenOptions.map((option) => (
+                <ToggleGroupItem
+                  key={option.value}
+                  value={option.value}
+                  // The kit's pressed tint is too faint to tell which moment is picked.
+                  className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                >
+                  {option.label}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+            {when !== 'now' && (
+              <Input
+                type="datetime-local"
+                aria-label="Дата и время"
+                value={moment}
+                max={toLocalInputValue(new Date())}
+                className="w-auto"
+                onChange={(event) => setMoment(event.target.value)}
+              />
+            )}
+          </div>
+        </Field>
+      </div>
+      <Field>
+        <FieldLabel htmlFor={`${id}-text`}>Что произошло</FieldLabel>
+        <Textarea
+          id={`${id}-text`}
+          value={text}
+          autoFocus={autoFocus}
+          placeholder="Созвонились с клиентом: согласовали запуск, ждут счёт до пятницы"
+          className="min-h-28 max-h-80"
+          onChange={(event) => setText(event.target.value)}
+          onKeyDown={submitOnShortcut}
+        />
+      </Field>
+      <div className="flex items-center gap-2">
+        <ShortcutHint action="записать" />
+        <div className="ml-auto flex gap-2">
+          {onCancel && (
+            <Button type="button" variant="outline" onClick={onCancel}>
+              Отмена
+            </Button>
+          )}
+          <Button type="submit" disabled={createEntry.isPending}>
+            Записать
+          </Button>
+        </div>
       </div>
     </form>
   )
 }
 
 function EntryEditor({ entry, onDone }: { entry: JournalEntryDto; onDone: () => void }) {
+  const id = useId()
   const updateEntry = useUpdateJournalEntry()
   const [text, setText] = useState(entry.text)
+  const initialMoment = toLocalInputValue(new Date(entry.happenedAt))
+  const [moment, setMoment] = useState(initialMoment)
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
-    const result = journalEntryUpdateSchema.safeParse({ text })
+    // Only a changed moment is sent, so saving a reworded note keeps its seconds untouched.
+    const happenedAt = moment === initialMoment ? undefined : fromLocalInputValue(moment)
+    if (happenedAt === null) {
+      toast.error('Укажите дату и время')
+      return
+    }
+    const result = journalEntryUpdateSchema.safeParse({ text, happenedAt })
     if (!result.success) {
       toast.error('Запись не может быть пустой')
       return
@@ -91,15 +225,40 @@ function EntryEditor({ entry, onDone }: { entry: JournalEntryDto; onDone: () => 
   }
 
   return (
-    <form onSubmit={handleSubmit} className="grid gap-2">
-      <Textarea value={text} autoFocus aria-label="Текст записи" onChange={(event) => setText(event.target.value)} />
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="ghost" size="sm" onClick={onDone}>
-          Отмена
-        </Button>
-        <Button type="submit" size="sm" disabled={updateEntry.isPending}>
-          Сохранить
-        </Button>
+    <form
+      onSubmit={handleSubmit}
+      className="grid gap-2"
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') onDone()
+      }}
+    >
+      <Textarea
+        value={text}
+        autoFocus
+        aria-label="Текст записи"
+        className="max-h-80"
+        onChange={(event) => setText(event.target.value)}
+        onKeyDown={submitOnShortcut}
+      />
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          id={`${id}-moment`}
+          type="datetime-local"
+          aria-label="Когда"
+          value={moment}
+          max={toLocalInputValue(new Date())}
+          className="h-8 w-auto"
+          onChange={(event) => setMoment(event.target.value)}
+        />
+        <ShortcutHint action="сохранить" />
+        <div className="ml-auto flex gap-2">
+          <Button type="button" variant="ghost" size="sm" onClick={onDone}>
+            Отмена
+          </Button>
+          <Button type="submit" size="sm" disabled={updateEntry.isPending}>
+            Сохранить
+          </Button>
+        </div>
       </div>
     </form>
   )
@@ -201,7 +360,11 @@ export function JournalTimeline({
               {editingId === entry.id ? (
                 <EntryEditor entry={entry} onDone={() => setEditingId(null)} />
               ) : (
-                <Typography variant="bodySm" tone={isNote ? 'current' : 'muted'} className="break-words whitespace-pre-wrap">
+                <Typography
+                  variant="bodySm"
+                  tone={isNote ? 'current' : 'muted'}
+                  className={cn('break-words whitespace-pre-wrap', isNote && 'rounded-lg bg-muted/50 px-3 py-2')}
+                >
                   {entry.text}
                 </Typography>
               )}

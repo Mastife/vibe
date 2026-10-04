@@ -20,10 +20,13 @@ export const journalEntrySchema = z.object({
 export const journalEntryCreateSchema = z.object({
   projectId: idSchema,
   text: requiredText(4000),
+  /** When it happened; omitted means now. The API refuses moments in the future. */
+  happenedAt: isoDateTimeSchema.optional(),
 })
 
 export const journalEntryUpdateSchema = z.object({
   text: requiredText(4000),
+  happenedAt: isoDateTimeSchema.optional(),
 })
 
 export const journalListQuerySchema = z.object({

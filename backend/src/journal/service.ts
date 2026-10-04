@@ -32,6 +32,19 @@ export const projectStatusNames: Record<ProjectStatus, string> = {
   ARCHIVED: 'Архив',
 }
 
+/** Room for the browser's clock running a little ahead of the server's. */
+const clockSkewMs = 5 * 60 * 1000
+
+/** A note records something that already happened, so its moment cannot be ahead of now. */
+function notInFuture(happenedAt: string | undefined): Date | undefined {
+  if (happenedAt === undefined) return undefined
+  const moment = new Date(happenedAt)
+  if (moment.getTime() > Date.now() + clockSkewMs) {
+    throw new AppError(400, 'BAD_REQUEST', 'Запись не может быть датирована будущим')
+  }
+  return moment
+}
+
 export function toJournalEntryDto(row: EntryRow): JournalEntryDto {
   return {
     id: row.id,
@@ -59,8 +72,9 @@ export class JournalService {
   }
 
   async create(payload: JournalEntryCreatePayload): Promise<JournalEntryDto> {
+    const happenedAt = notInFuture(payload.happenedAt)
     const row = await this.db.journalEntry
-      .create({ data: { projectId: payload.projectId, kind: 'NOTE', text: payload.text }, include: entryInclude })
+      .create({ data: { projectId: payload.projectId, kind: 'NOTE', text: payload.text, happenedAt }, include: entryInclude })
       .catch((error: unknown) => mapPrismaError(error, messages))
     return toJournalEntryDto(row)
   }
@@ -72,8 +86,9 @@ export class JournalService {
     if (current.kind !== 'NOTE') {
       throw new AppError(400, 'BAD_REQUEST', 'Автоматические записи нельзя изменить, только удалить')
     }
+    const happenedAt = notInFuture(payload.happenedAt)
     const row = await this.db.journalEntry
-      .update({ where: { id }, data: { text: payload.text }, include: entryInclude })
+      .update({ where: { id }, data: { text: payload.text, happenedAt }, include: entryInclude })
       .catch((error: unknown) => mapPrismaError(error, messages))
     return toJournalEntryDto(row)
   }
