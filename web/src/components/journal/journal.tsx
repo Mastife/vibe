@@ -12,41 +12,20 @@ import { useId, useState } from 'react'
 import { toast } from 'sonner'
 
 import { ConfirmDialog } from '@/components/confirm-dialog'
+import { SegmentedChoice, ShortcutHint } from '@/components/journal/composer-parts'
 import { Button } from '@/components/ui/button'
 import { Field, FieldLabel, FieldTitle } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Kbd, KbdGroup } from '@/components/ui/kbd'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Textarea } from '@/components/ui/textarea'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Typography } from '@/components/ui/typography'
 import { formatDateTime } from '@/lib/format'
+import { submitOnShortcut } from '@/lib/keyboard'
 import { fromLocalInputValue, toLocalInputValue } from '@/lib/local-datetime'
 import { useCreateJournalEntry, useDeleteJournalEntry, useUpdateJournalEntry } from '@/lib/queries'
 import { cn } from '@/lib/utils'
 
 const dayMs = 24 * 60 * 60 * 1000
-
-const modifierKey = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl'
-
-/** Ctrl+Enter (⌘+Enter on a Mac) sends the form the field belongs to. */
-function submitOnShortcut(event: React.KeyboardEvent<HTMLTextAreaElement>) {
-  if (event.key !== 'Enter' || !(event.ctrlKey || event.metaKey)) return
-  event.preventDefault()
-  event.currentTarget.form?.requestSubmit()
-}
-
-function ShortcutHint({ action }: { action: string }) {
-  return (
-    <Typography as="span" variant="caption" tone="muted" className="hidden items-center gap-1.5 md:flex">
-      <KbdGroup>
-        <Kbd>{modifierKey}</Kbd>
-        <Kbd>Enter</Kbd>
-      </KbdGroup>
-      {action}
-    </Typography>
-  )
-}
 
 type When = 'now' | 'yesterday' | 'custom'
 
@@ -87,9 +66,7 @@ export function JournalComposer({
   const [when, setWhen] = useState<When>('now')
   const [moment, setMoment] = useState('')
 
-  function pickWhen(next: string) {
-    if (next === '') return
-    const value = next as When
+  function pickWhen(value: When) {
     setWhen(value)
     if (value === 'yesterday') setMoment(toLocalInputValue(new Date(Date.now() - dayMs)))
     if (value === 'custom') setMoment(toLocalInputValue(new Date()))
@@ -144,18 +121,7 @@ export function JournalComposer({
         <Field className="w-auto" aria-labelledby={`${id}-when`}>
           <FieldTitle id={`${id}-when`}>Когда</FieldTitle>
           <div className="flex flex-wrap items-center gap-2">
-            <ToggleGroup type="single" variant="outline" value={when} onValueChange={pickWhen}>
-              {whenOptions.map((option) => (
-                <ToggleGroupItem
-                  key={option.value}
-                  value={option.value}
-                  // The kit's pressed tint is too faint to tell which moment is picked.
-                  className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                >
-                  {option.label}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
+            <SegmentedChoice aria-labelledby={`${id}-when`} options={whenOptions} value={when} onChange={pickWhen} />
             {when !== 'now' && (
               <Input
                 type="datetime-local"
@@ -182,7 +148,7 @@ export function JournalComposer({
         />
       </Field>
       <div className="flex items-center gap-2">
-        <ShortcutHint action="записать" />
+        <ShortcutHint keys="mod-enter" action="записать" />
         <div className="ml-auto flex gap-2">
           {onCancel && (
             <Button type="button" variant="outline" onClick={onCancel}>
@@ -250,7 +216,7 @@ function EntryEditor({ entry, onDone }: { entry: JournalEntryDto; onDone: () => 
           className="h-8 w-auto"
           onChange={(event) => setMoment(event.target.value)}
         />
-        <ShortcutHint action="сохранить" />
+        <ShortcutHint keys="mod-enter" action="сохранить" />
         <div className="ml-auto flex gap-2">
           <Button type="button" variant="ghost" size="sm" onClick={onDone}>
             Отмена

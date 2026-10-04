@@ -1,21 +1,30 @@
 import { PauseIcon, PlayIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { taskCreateSchema, taskUpdateSchema, type ProjectDto, type TaskDto, type TaskStatus } from '@projects-hq/contracts'
+import {
+  taskCreateSchema,
+  taskUpdateSchema,
+  type ProjectDto,
+  type TaskDto,
+  type TaskResponse,
+  type TaskStatus,
+} from '@projects-hq/contracts'
 import { useId, useState } from 'react'
 import { toast } from 'sonner'
 
 import { EntityDialog } from '@/components/entity-dialog'
 import { FormField } from '@/components/form-field'
+import { SegmentedChoice, ShortcutHint } from '@/components/journal/composer-parts'
 import { StatusDot } from '@/components/status-badges'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { DialogFooter } from '@/components/ui/dialog'
-import { FieldGroup } from '@/components/ui/field'
+import { Field, FieldGroup, FieldLabel, FieldTitle } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Typography } from '@/components/ui/typography'
 import { plural } from '@/lib/format'
 import { taskDueLabel, taskStatusLabels } from '@/lib/labels'
+import { toLocalDateValue } from '@/lib/local-datetime'
 import { useCreateTask, useDeleteTask, useUpdateTask } from '@/lib/queries'
 import { cn } from '@/lib/utils'
 
@@ -62,19 +71,73 @@ export function TaskProgress({ tasks }: { tasks: TaskDto[] }) {
   )
 }
 
-type TaskQuickAddProps = {
+type DuePreset = 'none' | 'today' | 'tomorrow' | 'week'
+
+const duePresets: Array<{ value: DuePreset; label: string; days: number | null }> = [
+  { value: 'none', label: 'Без срока', days: null },
+  { value: 'today', label: 'Сегодня', days: 0 },
+  { value: 'tomorrow', label: 'Завтра', days: 1 },
+  { value: 'week', label: 'Через неделю', days: 7 },
+]
+
+function presetDate(days: number | null) {
+  if (days === null) return ''
+  const date = new Date()
+  date.setDate(date.getDate() + days)
+  return toLocalDateValue(date)
+}
+
+/** Deadline as quick presets plus a date field; a date matching no preset leaves them all unpicked. */
+function DuePicker({ id, value, onChange }: { id: string; value: string; onChange: (value: string) => void }) {
+  const picked = duePresets.find((preset) => presetDate(preset.days) === value)?.value ?? ''
+  return (
+    <Field aria-labelledby={`${id}-due`}>
+      <FieldTitle id={`${id}-due`}>Срок</FieldTitle>
+      <div className="flex flex-wrap items-center gap-2">
+        <SegmentedChoice
+          aria-labelledby={`${id}-due`}
+          options={duePresets}
+          value={picked}
+          onChange={(preset) => onChange(presetDate(duePresets.find((item) => item.value === preset)?.days ?? null))}
+        />
+        <Input
+          type="date"
+          aria-label="Дата срока"
+          value={value}
+          className="w-auto"
+          onChange={(event) => onChange(event.target.value)}
+        />
+      </div>
+    </Field>
+  )
+}
+
+type TaskComposerProps = {
   /** Fixed project on a project page; omit to let the user pick one. */
   projectId?: string
   projects?: ProjectDto[]
+  /** Project picked up front when the user can still change it. */
+  defaultProjectId?: string
+  autoFocus?: boolean
+  onSaved?: (response: TaskResponse) => void
+  /** Shows a cancel button next to the submit one, for the composer inside a dialog. */
+  onCancel?: () => void
 }
 
-/** One-line task entry: what to do, optionally by when. */
-export function TaskQuickAdd({ projectId, projects = [] }: TaskQuickAddProps) {
+/** New task: what to do, for which project, and optionally by when. Enter adds it. */
+export function TaskComposer({
+  projectId,
+  projects = [],
+  defaultProjectId = '',
+  autoFocus = false,
+  onSaved,
+  onCancel,
+}: TaskComposerProps) {
   const id = useId()
   const createTask = useCreateTask()
   const [title, setTitle] = useState('')
   const [dueAt, setDueAt] = useState('')
-  const [pickedProject, setPickedProject] = useState('')
+  const [pickedProject, setPickedProject] = useState(defaultProjectId)
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -85,49 +148,60 @@ export function TaskQuickAdd({ projectId, projects = [] }: TaskQuickAddProps) {
       return
     }
     createTask.mutate(result.data, {
-      onSuccess: () => {
+      onSuccess: (response) => {
         setTitle('')
         setDueAt('')
+        onSaved?.(response)
       },
       onError: (error) => toast.error(error.message),
     })
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-wrap gap-2">
-      <Input
-        value={title}
-        placeholder="Новая задача"
-        aria-label="Новая задача"
-        className="min-w-40 flex-1"
-        onChange={(event) => setTitle(event.target.value)}
-      />
-      {!projectId && (
-        <NativeSelect
-          id={`${id}-project`}
-          aria-label="Проект"
-          value={pickedProject}
-          onChange={(event) => setPickedProject(event.target.value)}
-        >
-          <NativeSelectOption value="">Проект</NativeSelectOption>
-          {projects.map((project) => (
-            <NativeSelectOption key={project.id} value={project.id}>
-              {project.name}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
-      )}
-      <Input
-        type="date"
-        value={dueAt}
-        aria-label="Срок"
-        title="Срок"
-        className="w-40"
-        onChange={(event) => setDueAt(event.target.value)}
-      />
-      <Button type="submit" disabled={createTask.isPending}>
-        Добавить
-      </Button>
+    <form onSubmit={handleSubmit} className="grid gap-4">
+      <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
+        <Field className="min-w-48 flex-1">
+          <FieldLabel htmlFor={`${id}-title`}>Что сделать</FieldLabel>
+          <Input
+            id={`${id}-title`}
+            value={title}
+            autoFocus={autoFocus}
+            placeholder="Отправить клиенту отчёт за сентябрь"
+            onChange={(event) => setTitle(event.target.value)}
+          />
+        </Field>
+        {!projectId && (
+          <Field className="w-full sm:w-56">
+            <FieldLabel htmlFor={`${id}-project`}>Проект</FieldLabel>
+            <NativeSelect
+              id={`${id}-project`}
+              value={pickedProject}
+              onChange={(event) => setPickedProject(event.target.value)}
+            >
+              <NativeSelectOption value="">Выберите проект</NativeSelectOption>
+              {projects.map((project) => (
+                <NativeSelectOption key={project.id} value={project.id}>
+                  {project.name}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </Field>
+        )}
+      </div>
+      <DuePicker id={id} value={dueAt} onChange={setDueAt} />
+      <div className="flex items-center gap-2">
+        <ShortcutHint keys="enter" action="добавить" />
+        <div className="ml-auto flex gap-2">
+          {onCancel && (
+            <Button type="button" variant="outline" onClick={onCancel}>
+              Отмена
+            </Button>
+          )}
+          <Button type="submit" disabled={createTask.isPending}>
+            Добавить задачу
+          </Button>
+        </div>
+      </div>
     </form>
   )
 }
@@ -287,25 +361,16 @@ function TaskEditForm({ task, onDone }: { task: TaskDto; onDone: () => void }) {
             }}
           />
         </FormField>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FormField id={`${id}-due`} label="Срок" description="За день и в день срока бот напомнит в Telegram.">
-            <Input id={`${id}-due`} type="date" value={dueAt} onChange={(event) => setDueAt(event.target.value)} />
-          </FormField>
-          <FormField id={`${id}-status`} label="Статус">
-            <NativeSelect
-              id={`${id}-status`}
-              className="w-full"
-              value={status}
-              onChange={(event) => setStatus(event.target.value as TaskStatus)}
-            >
-              {taskStatuses.map((value) => (
-                <NativeSelectOption key={value} value={value}>
-                  {taskStatusLabels[value]}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-          </FormField>
-        </div>
+        <DuePicker id={id} value={dueAt} onChange={setDueAt} />
+        <Field aria-labelledby={`${id}-status`}>
+          <FieldTitle id={`${id}-status`}>Статус</FieldTitle>
+          <SegmentedChoice
+            aria-labelledby={`${id}-status`}
+            options={taskStatuses.map((value) => ({ value, label: taskStatusLabels[value] }))}
+            value={status}
+            onChange={setStatus}
+          />
+        </Field>
         <DialogFooter className="sm:justify-between">
           <Button type="button" variant="destructive" disabled={deleteTask.isPending} onClick={handleDelete}>
             Удалить

@@ -64,6 +64,20 @@ test('first admin sets up the panel, tracks a project, a server payment, and sig
   await page.getByRole('link', { name: projectName }).click()
   await expect(page.getByRole('heading', { name: projectName })).toBeVisible()
   await page.locator('body').click()
+
+  // A task the same way: T opens it with the project picked, a deadline preset, Enter adds it.
+  await page.keyboard.press('KeyT')
+  const taskDialog = page.getByRole('dialog', { name: 'Новая задача' })
+  await expect(taskDialog.getByLabel('Проект', { exact: true })).toHaveValue(/.+/)
+  await expect(taskDialog.getByLabel('Что сделать', { exact: true })).toBeFocused()
+  await taskDialog.getByRole('radio', { name: 'Завтра' }).click()
+  await expect(taskDialog.getByLabel('Дата срока', { exact: true })).not.toHaveValue('')
+  await taskDialog.getByLabel('Что сделать', { exact: true }).fill('Отправить отчёт')
+  await taskDialog.getByLabel('Что сделать', { exact: true }).press('Enter')
+  await expect(taskDialog).toHaveCount(0)
+  await expect(page.getByText('Задача добавлена')).toBeVisible()
+  await expect(page.getByRole('button', { name: /Отправить отчёт/ })).toBeVisible()
+
   await page.keyboard.press('KeyN')
   const noteDialog = page.getByRole('dialog', { name: 'Новая запись в журнал' })
   await expect(noteDialog.getByLabel('Проект', { exact: true })).toHaveValue(/.+/)
