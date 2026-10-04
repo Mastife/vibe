@@ -2,7 +2,7 @@ import type { TaskDto, TaskStatus } from '@projects-hq/contracts'
 import { useState } from 'react'
 
 import { JournalComposer, JournalTimeline } from '@/components/journal/journal'
-import { TaskList, TaskQuickAdd } from '@/components/journal/tasks'
+import { TaskComposer, TaskList } from '@/components/journal/tasks'
 import { PageHeader } from '@/components/page-header'
 import { StatusDot } from '@/components/status-badges'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -72,20 +72,31 @@ export function JournalPage() {
         </Alert>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Новая запись</CardTitle>
-          <CardDescription>Созвон, решение, договорённость. С любой страницы запись открывается клавишей N.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <JournalComposer
-            // A new filter means a new default project in the picker.
-            key={projectId}
-            projects={pickable}
-            defaultProjectId={projectId}
-          />
-        </CardContent>
-      </Card>
+      <div className="grid items-start gap-4 xl:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Новая задача</CardTitle>
+            <CardDescription>Перед сроком бот напомнит в Telegram. С любой страницы — клавиша T.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <TaskComposer
+              // A new filter means a new default project in the picker.
+              key={projectId}
+              projects={pickable}
+              defaultProjectId={projectId}
+            />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Новая запись</CardTitle>
+            <CardDescription>Созвон, решение, договорённость. С любой страницы — клавиша N.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <JournalComposer key={projectId} projects={pickable} defaultProjectId={projectId} />
+          </CardContent>
+        </Card>
+      </div>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Tile label="открытых задач" value={open.length} />
@@ -101,7 +112,6 @@ export function JournalPage() {
         </TabsList>
 
         <TabsContent value="tasks" className="grid gap-4">
-          <TaskQuickAdd projectId={projectId || undefined} projects={pickable} />
           {tasks.isPending ? (
             <Skeleton className="h-64" />
           ) : (

@@ -2,7 +2,7 @@ import { ArrowDown01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 
 import { JournalComposer, JournalTimeline } from '@/components/journal/journal'
-import { TaskList, TaskProgress, TaskQuickAdd } from '@/components/journal/tasks'
+import { TaskComposer, TaskList, TaskProgress } from '@/components/journal/tasks'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -26,7 +26,7 @@ export function ProjectWork({ projectId }: { projectId: string }) {
         </CardHeader>
         <CardContent className="grid gap-4">
           <TaskProgress tasks={all} />
-          <TaskQuickAdd projectId={projectId} />
+          <TaskComposer projectId={projectId} />
           {tasks.isPending ? (
             <Skeleton className="h-16" />
           ) : tasks.isError ? (

@@ -12,7 +12,7 @@ import {
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Link, Outlet, useRouterState } from '@tanstack/react-router'
 
-import { JournalEntryButton } from '@/components/journal/journal-entry-dialog'
+import { QuickCreate } from '@/components/journal/quick-create'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -85,7 +85,7 @@ export function AppShell() {
           <SidebarTrigger />
           <Separator orientation="vertical" className="h-5" />
           <div className="ml-auto">
-            <JournalEntryButton />
+            <QuickCreate />
           </div>
           <Typography variant="bodySm" tone="muted" truncate className="hidden sm:block">
             {auth.user?.email}
