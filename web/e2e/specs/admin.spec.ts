@@ -60,6 +60,21 @@ test('first admin sets up the panel, tracks a project, a server payment, and sig
   await page.getByRole('button', { name: 'Проверить сейчас' }).click()
   await expect(page.getByText('Работает', { exact: true })).toBeVisible()
 
+  // A journal note from the header: N opens it with this project picked, Ctrl+Enter saves.
+  await page.getByRole('link', { name: projectName }).click()
+  await expect(page.getByRole('heading', { name: projectName })).toBeVisible()
+  await page.locator('body').click()
+  await page.keyboard.press('KeyN')
+  const noteDialog = page.getByRole('dialog', { name: 'Новая запись в журнал' })
+  await expect(noteDialog.getByLabel('Проект', { exact: true })).toHaveValue(/.+/)
+  await expect(noteDialog.getByLabel('Что произошло', { exact: true })).toBeFocused()
+  await noteDialog.getByRole('radio', { name: 'Вчера' }).click()
+  await noteDialog.getByLabel('Что произошло', { exact: true }).fill('Созвон: согласовали запуск')
+  await noteDialog.getByLabel('Что произошло', { exact: true }).press('Control+Enter')
+  await expect(noteDialog).toHaveCount(0)
+  await expect(page.getByText('Записано в журнал')).toBeVisible()
+  await expect(page.getByText('Созвон: согласовали запуск')).toBeVisible()
+
   // Dashboard reflects the new state.
   await page.getByRole('link', { name: 'Обзор', exact: true }).click()
   await expect(page.getByRole('link', { name: projectName })).toBeVisible()

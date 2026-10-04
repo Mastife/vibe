@@ -6,7 +6,7 @@ import { TaskList, TaskQuickAdd } from '@/components/journal/tasks'
 import { PageHeader } from '@/components/page-header'
 import { StatusDot } from '@/components/status-badges'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -72,6 +72,21 @@ export function JournalPage() {
         </Alert>
       )}
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Новая запись</CardTitle>
+          <CardDescription>Созвон, решение, договорённость. С любой страницы запись открывается клавишей N.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <JournalComposer
+            // A new filter means a new default project in the picker.
+            key={projectId}
+            projects={pickable}
+            defaultProjectId={projectId}
+          />
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Tile label="открытых задач" value={open.length} />
         <Tile label="в работе" value={byStatus('IN_PROGRESS').length} tone="warning" />
@@ -114,8 +129,7 @@ export function JournalPage() {
 
         <TabsContent value="history">
           <Card>
-            <CardContent className="grid gap-4">
-              <JournalComposer projectId={projectId || undefined} projects={pickable} />
+            <CardContent>
               {journal.isPending ? (
                 <Skeleton className="h-40" />
               ) : (

@@ -649,6 +649,21 @@ maybeDescribe('projects hq API integration', () => {
     const reworded = await api('PATCH', `/api/journal/${note.body.entry.id}`, { text: 'Созвон: нужен отчёт' }, token)
     expect(reworded.body.entry.text).toBe('Созвон: нужен отчёт')
 
+    // A note can be dated back to when it happened, but not into the future.
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    const backdated = await api('POST', '/api/journal', { projectId, text: 'Вчерашний созвон', happenedAt: yesterday }, token)
+    expect(backdated.status).toBe(201)
+    expect(backdated.body.entry.happenedAt).toBe(yesterday)
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+    expect((await api('POST', '/api/journal', { projectId, text: 'Завтра', happenedAt: tomorrow }, token)).status).toBe(400)
+    expect((await api('PATCH', `/api/journal/${backdated.body.entry.id}`, { text: 'x', happenedAt: tomorrow }, token)).status).toBe(400)
+    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+    const redated = await api('PATCH', `/api/journal/${backdated.body.entry.id}`, { text: 'Созвон', happenedAt: twoDaysAgo }, token)
+    expect(redated.body.entry).toMatchObject({ text: 'Созвон', happenedAt: twoDaysAgo })
+    const kept = await api('PATCH', `/api/journal/${backdated.body.entry.id}`, { text: 'Созвон позавчера' }, token)
+    expect(kept.body.entry.happenedAt).toBe(twoDaysAgo)
+    expect((await api('DELETE', `/api/journal/${backdated.body.entry.id}`, undefined, token)).status).toBe(204)
+
     // Status changes and outages write themselves into the journal.
     await api('PATCH', `/api/projects/${projectId}`, { status: 'PAUSED' }, token)
     await api('PATCH', `/api/projects/${projectId}`, { name: 'Moika 2' }, token)
