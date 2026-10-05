@@ -71,13 +71,14 @@ export function TaskProgress({ tasks }: { tasks: TaskDto[] }) {
   )
 }
 
-type DuePreset = 'none' | 'today' | 'tomorrow' | 'week'
+type DuePreset = 'none' | 'today' | 'tomorrow' | 'week' | 'custom'
 
-const duePresets: Array<{ value: DuePreset; label: string; days: number | null }> = [
+const duePresets: Array<{ value: DuePreset; label: string; days?: number | null }> = [
   { value: 'none', label: 'Без срока', days: null },
   { value: 'today', label: 'Сегодня', days: 0 },
   { value: 'tomorrow', label: 'Завтра', days: 1 },
   { value: 'week', label: 'Через неделю', days: 7 },
+  { value: 'custom', label: 'Другая дата' },
 ]
 
 function presetDate(days: number | null) {
@@ -87,26 +88,40 @@ function presetDate(days: number | null) {
   return toLocalDateValue(date)
 }
 
-/** Deadline as quick presets plus a date field; a date matching no preset leaves them all unpicked. */
+/**
+ * Deadline as quick presets; "Другая дата" reveals a date field. The field stays hidden otherwise
+ * because an empty date input renders as a blank pill on iOS.
+ */
 function DuePicker({ id, value, onChange }: { id: string; value: string; onChange: (value: string) => void }) {
-  const picked = duePresets.find((preset) => presetDate(preset.days) === value)?.value ?? ''
+  const matched = duePresets.find((preset) => preset.days !== undefined && presetDate(preset.days) === value)?.value
+  const [custom, setCustom] = useState(matched === undefined)
+  // A cleared deadline (also after the form resets) always reads as "Без срока".
+  const picked = value === '' ? 'none' : custom ? 'custom' : (matched ?? 'custom')
+
+  function pick(preset: DuePreset) {
+    if (preset === 'custom') {
+      setCustom(true)
+      if (value === '') onChange(presetDate(0))
+      return
+    }
+    setCustom(false)
+    onChange(presetDate(duePresets.find((item) => item.value === preset)?.days ?? null))
+  }
+
   return (
     <Field aria-labelledby={`${id}-due`}>
       <FieldTitle id={`${id}-due`}>Срок</FieldTitle>
       <div className="flex flex-wrap items-center gap-2">
-        <SegmentedChoice
-          aria-labelledby={`${id}-due`}
-          options={duePresets}
-          value={picked}
-          onChange={(preset) => onChange(presetDate(duePresets.find((item) => item.value === preset)?.days ?? null))}
-        />
-        <Input
-          type="date"
-          aria-label="Дата срока"
-          value={value}
-          className="w-auto"
-          onChange={(event) => onChange(event.target.value)}
-        />
+        <SegmentedChoice aria-labelledby={`${id}-due`} options={duePresets} value={picked} onChange={pick} />
+        {picked === 'custom' && (
+          <Input
+            type="date"
+            aria-label="Дата срока"
+            value={value}
+            className="w-auto"
+            onChange={(event) => onChange(event.target.value)}
+          />
+        )}
       </div>
     </Field>
   )
@@ -158,9 +173,9 @@ export function TaskComposer({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="grid gap-4">
+    <form onSubmit={handleSubmit} className="grid min-w-0 gap-4">
       <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
-        <Field className="min-w-48 flex-1">
+        <Field className="min-w-0 flex-1 basis-60">
           <FieldLabel htmlFor={`${id}-title`}>Что сделать</FieldLabel>
           <Input
             id={`${id}-title`}

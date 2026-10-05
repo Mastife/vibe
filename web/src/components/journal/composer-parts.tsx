@@ -33,6 +33,9 @@ export function SegmentedChoice<T extends string>({ options, value, onChange, ..
     <ToggleGroup
       type="single"
       variant="outline"
+      // Separate chips that wrap, so a row of options never pushes past a phone's screen.
+      spacing={1}
+      className="max-w-full flex-wrap"
       value={value}
       // Radix reports '' when the picked option is clicked again; keep the current choice then.
       onValueChange={(next) => next !== '' && onChange(next as T)}

@@ -71,7 +71,7 @@ test('first admin sets up the panel, tracks a project, a server payment, and sig
   await expect(taskDialog.getByLabel('Проект', { exact: true })).toHaveValue(/.+/)
   await expect(taskDialog.getByLabel('Что сделать', { exact: true })).toBeFocused()
   await taskDialog.getByRole('radio', { name: 'Завтра' }).click()
-  await expect(taskDialog.getByLabel('Дата срока', { exact: true })).not.toHaveValue('')
+  await expect(taskDialog.getByRole('radio', { name: 'Завтра' })).toHaveAttribute('aria-checked', 'true')
   await taskDialog.getByLabel('Что сделать', { exact: true }).fill('Отправить отчёт')
   await taskDialog.getByLabel('Что сделать', { exact: true }).press('Enter')
   await expect(taskDialog).toHaveCount(0)
@@ -88,6 +88,16 @@ test('first admin sets up the panel, tracks a project, a server payment, and sig
   await expect(noteDialog).toHaveCount(0)
   await expect(page.getByText('Записано в журнал')).toBeVisible()
   await expect(page.getByText('Созвон: согласовали запуск')).toBeVisible()
+
+  // On a phone the task and note forms fit their cards: nothing sticks out past the right edge.
+  await page.setViewportSize({ width: 390, height: 844 })
+  const overflowing = await page.locator('form *').evaluateAll((elements) =>
+    elements
+      .filter((element) => element.getBoundingClientRect().right > window.innerWidth + 1)
+      .map((element) => element.textContent?.slice(0, 40) || element.tagName),
+  )
+  expect(overflowing).toEqual([])
+  await page.setViewportSize({ width: 1280, height: 720 })
 
   // Dashboard reflects the new state.
   await page.getByRole('link', { name: 'Обзор', exact: true }).click()
