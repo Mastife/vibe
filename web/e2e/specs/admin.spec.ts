@@ -97,7 +97,21 @@ test('first admin sets up the panel, tracks a project, a server payment, and sig
       .map((element) => element.textContent?.slice(0, 40) || element.tagName),
   )
   expect(overflowing).toEqual([])
+  // A long row of filter tabs scrolls sideways instead of squeezing labels into each other.
+  await page.goto('/projects')
+  await expect(page.getByRole('tab', { name: 'Разработка' })).toBeVisible()
+  const squeezedTabs = await page.getByRole('tab').evaluateAll((tabs) =>
+    tabs.filter((tab) => tab.scrollWidth > tab.clientWidth + 1).map((tab) => tab.textContent),
+  )
+  expect(squeezedTabs).toEqual([])
+  // The first tab of a crowded row stays reachable at the left edge.
+  await page.getByRole('button', { name: 'Добавить проект' }).first().click()
+  const firstTab = page.getByRole('dialog').getByRole('tab').first()
+  const tabList = page.getByRole('dialog').getByRole('tablist')
+  expect((await firstTab.boundingBox())!.x).toBeGreaterThanOrEqual((await tabList.boundingBox())!.x)
+  await page.keyboard.press('Escape')
   await page.setViewportSize({ width: 1280, height: 720 })
+  await page.getByRole('link', { name: projectName }).click()
 
   // Dashboard reflects the new state.
   await page.getByRole('link', { name: 'Обзор', exact: true }).click()
