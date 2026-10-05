@@ -99,7 +99,7 @@ export function JournalComposer({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="grid gap-4">
+    <form onSubmit={handleSubmit} className="grid min-w-0 gap-4">
       <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
         {!projectId && (
           <Field className="w-full sm:w-56">
@@ -118,7 +118,7 @@ export function JournalComposer({
             </NativeSelect>
           </Field>
         )}
-        <Field className="w-auto" aria-labelledby={`${id}-when`}>
+        <Field className="w-auto max-w-full" aria-labelledby={`${id}-when`}>
           <FieldTitle id={`${id}-when`}>Когда</FieldTitle>
           <div className="flex flex-wrap items-center gap-2">
             <SegmentedChoice aria-labelledby={`${id}-when`} options={whenOptions} value={when} onChange={pickWhen} />
